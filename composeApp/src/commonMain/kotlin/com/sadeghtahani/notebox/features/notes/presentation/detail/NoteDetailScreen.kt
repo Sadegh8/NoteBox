@@ -24,6 +24,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -34,6 +36,7 @@ import com.sadeghtahani.notebox.features.notes.presentation.detail.data.Formatti
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.NoteDetailUi
 import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.MarkdownVisualTransformation
 import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.applyFormatting
+import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.getActiveFormats
 import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.handleAutoList
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
@@ -52,11 +55,13 @@ fun NoteDetailScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val existingTags by viewModel.existingTags.collectAsStateWithLifecycle()
 
+
     // Dialog States
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showAddTagDialog by remember { mutableStateOf(false) }
     var tagToDelete by remember { mutableStateOf<String?>(null) } // State for tag removal
     var newTagText by remember { mutableStateOf("") }
+
 
 
     if (showDeleteDialog) {
@@ -93,6 +98,15 @@ fun NoteDetailScreen(
             var currentNote by remember(state.note) { mutableStateOf(state.note) }
             var contentFieldValue by remember(state.note.content) {
                 mutableStateOf(TextFieldValue(state.note.content))
+            }
+
+            val activeFormats = remember(contentFieldValue.selection, contentFieldValue.text) {
+                val formats = getActiveFormats(contentFieldValue)
+                val activeSet = mutableSetOf<FormattingType>()
+                if (formats.isBold) activeSet.add(FormattingType.BOLD)
+                if (formats.isItalic) activeSet.add(FormattingType.ITALIC)
+                if (formats.isList) activeSet.add(FormattingType.LIST)
+                activeSet
             }
 
             // Sync Content
@@ -181,7 +195,7 @@ fun NoteDetailScreen(
             NoteDetailContent(
                 noteUi = currentNote,
                 contentFieldValue = contentFieldValue,
-                // 2. Pass our custom saveAndExit to the Toolbar Back Button
+                activeFormats = activeFormats,
                 onBackClick = saveAndExit,
                 onTitleChange = { currentNote = currentNote.copy(title = it) },
                 onContentChange = { newValue ->
@@ -209,6 +223,7 @@ fun NoteDetailContent(
     noteUi: NoteDetailUi,
     contentFieldValue: TextFieldValue,
     onBackClick: () -> Unit,
+    activeFormats: Set<FormattingType>,
     onTitleChange: (String) -> Unit,
     onContentChange: (TextFieldValue) -> Unit,
     onFavoriteToggle: () -> Unit,
@@ -237,7 +252,12 @@ fun NoteDetailContent(
                     .imePadding(),
                 contentAlignment = Alignment.Center
             ) {
-                EditorToolbar(onSaveClick, onDeleteClick, onFormatClick)
+                EditorToolbar(
+                    activeFormats = activeFormats,
+                    onSaveClick = onSaveClick,
+                    onDeleteClick = onDeleteClick,
+                    onFormatClick = onFormatClick
+                )
             }
         },
         floatingActionButtonPosition = FabPosition.Center
@@ -271,7 +291,9 @@ fun NoteDetailContent(
                 textStyle = TextStyle(
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
-                    color = colors.onBackground
+                    color = colors.onBackground,
+                    textDirection = TextDirection.Content,
+                    textAlign = TextAlign.Start
                 ),
                 cursorBrush = SolidColor(colors.primary),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
@@ -281,7 +303,8 @@ fun NoteDetailContent(
                         "Untitled Note",
                         fontSize = 30.sp,
                         fontWeight = FontWeight.Bold,
-                        color = colors.onSurfaceVariant.copy(alpha = 0.5f)
+                        color = colors.onSurfaceVariant.copy(alpha = 0.5f),
+                        textAlign = TextAlign.Start
                     )
                 }
                 innerTextField()
@@ -329,7 +352,9 @@ fun NoteDetailContent(
                     textStyle = TextStyle(
                         fontSize = 16.sp,
                         color = colors.onSurface,
-                        lineHeight = 24.sp
+                        lineHeight = 24.sp,
+                        textDirection = TextDirection.Content,
+                        textAlign = TextAlign.Start
                     ),
                     cursorBrush = SolidColor(colors.primary),
                     modifier = Modifier.fillMaxSize().focusRequester(focusRequester)
@@ -338,7 +363,8 @@ fun NoteDetailContent(
                         Text(
                             "Start typing...",
                             fontSize = 16.sp,
-                            color = colors.onSurfaceVariant.copy(alpha = 0.5f)
+                            color = colors.onSurfaceVariant.copy(alpha = 0.5f),
+                            textAlign = TextAlign.Start
                         )
                     }
                     innerTextField()
@@ -369,7 +395,8 @@ private fun PreviewDetailDark() {
             onDeleteClick = {},
             onAddTagClick = {},
             onFormatClick = {},
-            onTagLongClick = {}
+            onTagLongClick = {},
+            activeFormats = emptySet()
         )
     }
 }

@@ -16,3 +16,9 @@ sealed interface DetailUiState {
 }
 
 enum class FormattingType { BOLD, ITALIC, LIST }
+
+data class ActiveFormats(
+    val isBold: Boolean = false,
+    val isItalic: Boolean = false,
+    val isList: Boolean = false
+)

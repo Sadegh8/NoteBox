@@ -2,6 +2,7 @@ package com.sadeghtahani.notebox.features.notes.presentation.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sadeghtahani.notebox.features.notes.domain.usecase.DeleteNoteUseCase
 import com.sadeghtahani.notebox.features.notes.domain.usecase.GetNoteByIdUseCase
 import com.sadeghtahani.notebox.features.notes.domain.usecase.SaveNoteUseCase
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.DetailUiState
@@ -14,9 +15,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class NoteDetailViewModel(
-    private val noteId: Long?, // Null for new note, ID for editing
+    private val noteId: Long?,
     private val getNoteByIdUseCase: GetNoteByIdUseCase,
-    private val saveNoteUseCase: SaveNoteUseCase
+    private val saveNoteUseCase: SaveNoteUseCase,
+    private val deleteNoteUseCase: DeleteNoteUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<DetailUiState>(DetailUiState.Loading)
@@ -29,10 +31,8 @@ class NoteDetailViewModel(
     private fun loadNote() {
         viewModelScope.launch {
             if (noteId == null || noteId == 0L) {
-                // Creating a new note
                 _uiState.value = DetailUiState.Success(NoteDetailUi())
             } else {
-                // Editing existing note
                 val note = getNoteByIdUseCase(noteId)
                 if (note != null) {
                     _uiState.value = DetailUiState.Success(note.toDetailUi())
@@ -46,8 +46,18 @@ class NoteDetailViewModel(
     fun saveNote(currentUiState: NoteDetailUi) {
         viewModelScope.launch {
             saveNoteUseCase(currentUiState.toDomain())
-            // Ideally navigate back or show a success message here
+        }
+    }
+
+    fun deleteNote(onSuccess: () -> Unit) {
+        if (noteId != null && noteId != 0L) {
+            viewModelScope.launch {
+                deleteNoteUseCase(noteId)
+                onSuccess()
+            }
+        } else {
+            // If it's a new note that hasn't been saved, just navigate back
+            onSuccess()
         }
     }
 }
-

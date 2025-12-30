@@ -18,7 +18,10 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,33 +33,32 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.sadeghtahani.notebox.core.theme.DarkSurface
-import com.sadeghtahani.notebox.core.theme.DarkSurfaceVariant
-import com.sadeghtahani.notebox.core.theme.LightSurface
-import com.sadeghtahani.notebox.core.theme.LightSurfaceVariant
-import com.sadeghtahani.notebox.core.theme.TextDark
-import com.sadeghtahani.notebox.core.theme.TextGray
 import com.sadeghtahani.notebox.features.notes.presentation.list.data.NoteUi
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
-
 @Composable
-fun NoteCard(note: NoteUi, isDark: Boolean, primaryColor: Color, onClick: (Long) -> Unit) {
-    val cardBg = if (isDark) DarkSurface else LightSurface
-    val hoverColor = if (isDark) DarkSurfaceVariant else LightSurfaceVariant
-
+fun NoteCard(
+    note: NoteUi,
+    onClick: (Long) -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 12.dp)
             .clickable { onClick(note.id) },
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = cardBg),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
-                .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(24.dp))
+                .border(
+                    1.dp,
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
+                    RoundedCornerShape(24.dp)
+                )
                 .padding(20.dp)
         ) {
             Row(
@@ -68,22 +70,28 @@ fun NoteCard(note: NoteUi, isDark: Boolean, primaryColor: Color, onClick: (Long)
                     text = note.title,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isDark) Color.White else TextDark
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 if (note.isPinned) {
                     Icon(
                         Icons.Default.PushPin,
                         contentDescription = "Pinned",
-                        tint = primaryColor,
-                        modifier = Modifier.size(20.dp).rotate(45f).alpha(0.8f)
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .rotate(45f)
+                            .alpha(0.8f)
                     )
                 } else {
                     Text(
                         text = note.date,
                         fontSize = 12.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
-                            .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(6.dp))
+                            .background(
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                                RoundedCornerShape(6.dp)
+                            )
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
@@ -94,7 +102,7 @@ fun NoteCard(note: NoteUi, isDark: Boolean, primaryColor: Color, onClick: (Long)
             Text(
                 text = note.preview,
                 fontSize = 14.sp,
-                color = TextGray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 20.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
@@ -102,12 +110,15 @@ fun NoteCard(note: NoteUi, isDark: Boolean, primaryColor: Color, onClick: (Long)
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Tag Chip
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
                     .background(note.tagBg)
-                    .border(1.dp, note.tagColor.copy(alpha = 0.1f), RoundedCornerShape(6.dp))
+                    .border(
+                        1.dp,
+                        note.tagColor.copy(alpha = 0.1f),
+                        RoundedCornerShape(6.dp)
+                    )
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
@@ -121,6 +132,7 @@ fun NoteCard(note: NoteUi, isDark: Boolean, primaryColor: Color, onClick: (Long)
     }
 }
 
+// --- PREVIEWS ---
 @Preview(name = "Note Card - Pinned (Dark)")
 @Composable
 fun PreviewNoteCardPinnedDark() {
@@ -135,17 +147,17 @@ fun PreviewNoteCardPinnedDark() {
         tagBg = Color(0xFF39FF14).copy(alpha = 0.1f)
     )
 
-    Column(
-        modifier = Modifier
-            .background(Color(0xFF0F0F0F))
-            .padding(16.dp)
-    ) {
-        NoteCard(
-            note = note,
-            isDark = true,
-            primaryColor = Color(0xFF39FF14),
-            onClick = {}
-        )
+    MaterialTheme(colorScheme = darkColorScheme()) {
+        Column(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.background)
+                .padding(16.dp)
+        ) {
+            NoteCard(
+                note = note,
+                onClick = {}
+            )
+        }
     }
 }
 
@@ -163,44 +175,16 @@ fun PreviewNoteCardRegularLight() {
         tagBg = Color(0xFF2196F3).copy(alpha = 0.1f)
     )
 
-    Column(
-        modifier = Modifier
-            .background(Color(0xFFF5F5F5))
-            .padding(16.dp)
-    ) {
-        NoteCard(
-            note = note,
-            isDark = false,
-            primaryColor = Color(0xFF2196F3),
-            onClick = {}
-        )
-    }
-}
-
-@Preview(name = "Note Card - Long Text (Dark)")
-@Composable
-fun PreviewNoteCardLongText() {
-    val note = NoteUi(
-        id = 3,
-        title = "Inspiration and Ideas for 2024",
-        preview = "This is a very long description to test the ellipsis behavior of the note card component. It should cut off after two lines of text to maintain the card height consistency.",
-        date = "Oct 20",
-        isPinned = false,
-        tag = "Ideas",
-        tagColor = Color(0xFFFF9800),
-        tagBg = Color(0xFFFF9800).copy(alpha = 0.1f)
-    )
-
-    Column(
-        modifier = Modifier
-            .background(Color(0xFF0F0F0F))
-            .padding(16.dp)
-    ) {
-        NoteCard(
-            note = note,
-            isDark = true,
-            primaryColor = Color(0xFF39FF14),
-            onClick = {}
-        )
+    MaterialTheme(colorScheme = lightColorScheme()) {
+        Column(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.background)
+                .padding(16.dp)
+        ) {
+            NoteCard(
+                note = note,
+                onClick = {}
+            )
+        }
     }
 }

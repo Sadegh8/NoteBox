@@ -14,3 +14,5 @@ sealed interface DetailUiState {
     data class Success(val note: NoteDetailUi) : DetailUiState
     data class Error(val message: String) : DetailUiState
 }
+
+enum class FormattingType { BOLD, ITALIC, LIST }

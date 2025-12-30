@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Icon
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,75 +22,86 @@ import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
-fun AddTagButton(isDark: Boolean, primaryColor: Color) {
+fun AddTagButton(
+    onClick: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val colors = MaterialTheme.colorScheme
+
     Box(
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .border(
-                2.dp,
-                if (isDark) Color(0xFF2a4625) else Color.LightGray,
+                1.dp,
+                colors.outline.copy(alpha = 0.2f),
                 RoundedCornerShape(8.dp)
             )
-            .clickable { }
+            .clickable { onClick() }
             .padding(horizontal = 12.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            Icons.Default.Add,
+            imageVector = Icons.Default.Add,
             contentDescription = "Add Tag",
-            tint = if (isDark) primaryColor else Color.Gray,
+            tint = colors.primary,
             modifier = Modifier.size(18.dp)
         )
     }
 }
 
+// --- PREVIEWS ---
 @Preview(name = "Add Tag Button - Dark Mode")
 @Composable
 fun PreviewAddTagButtonDark() {
-    Column(
-        modifier = Modifier
-            .background(Color(0xFF0F0F0F))
-            .padding(24.dp)
-    ) {
-        AddTagButton(
-            isDark = true,
-            primaryColor = Color(0xFF39FF14)
+    MaterialTheme(
+        colorScheme = darkColorScheme(
+            primary = Color(0xFF86d678),
+            background = Color(0xFF0F0F0F),
+            outline = Color.White
         )
+    ) {
+        Column(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.background)
+                .padding(24.dp)
+        ) {
+            AddTagButton()
+        }
     }
 }
 
 @Preview(name = "Add Tag Button - Light Mode")
 @Composable
 fun PreviewAddTagButtonLight() {
-    Column(
-        modifier = Modifier
-            .background(Color.White)
-            .padding(24.dp)
-    ) {
-        AddTagButton(
-            isDark = false,
-            primaryColor = Color(0xFF2196F3)
+    MaterialTheme(
+        colorScheme = lightColorScheme(
+            primary = Color(0xFF2e7d32),
+            background = Color.White,
+            outline = Color.Black
         )
+    ) {
+        Column(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.background)
+                .padding(24.dp)
+        ) {
+            AddTagButton()
+        }
     }
 }
 
-@Preview(name = "Add Tag Button - Grouped with Tags")
+@Preview(name = "Add Tag Button - Grouped")
 @Composable
 fun PreviewAddTagButtonGrouped() {
-    Row(
-        modifier = Modifier
-            .background(Color(0xFF1A1A1A))
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // TagChip is expected to be in the same package
-        TagChip(text = "Meetings", isDark = true, primaryColor = Color(0xFF39FF14))
-        TagChip(text = "Project", isDark = true, primaryColor = Color(0xFF39FF14))
-
-        AddTagButton(
-            isDark = true,
-            primaryColor = Color(0xFF39FF14)
-        )
+    MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xFF86d678))) {
+        Row(
+            modifier = Modifier
+                .background(Color(0xFF1A1A1A))
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AddTagButton()
+        }
     }
 }

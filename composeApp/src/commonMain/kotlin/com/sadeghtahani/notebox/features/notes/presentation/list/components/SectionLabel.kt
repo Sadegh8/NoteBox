@@ -9,7 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,14 +20,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.sadeghtahani.notebox.core.theme.NeonGreen
-import com.sadeghtahani.notebox.features.notes.presentation.common.alpha
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
-fun SectionLabel(text: String, color: Color) {
+fun SectionLabel(
+    text: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp, top = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -32,38 +39,64 @@ fun SectionLabel(text: String, color: Color) {
             color = color,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp,
-            modifier = Modifier.alpha(if (color == NeonGreen) 0.9f else 0.5f)
+            letterSpacing = 1.sp
         )
         Spacer(modifier = Modifier.width(12.dp))
-        HorizontalDivider(modifier = Modifier.weight(1f), color = color.copy(alpha = 0.1f))
+
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            color = color.copy(alpha = 0.3f)
+        )
     }
 }
 
-@Preview(showBackground = true, name = "Section Label Variants")
+// --- PREVIEWS ---
+@Preview(showBackground = true, name = "Section Label - Dark Theme")
 @Composable
-fun PreviewSectionLabel() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF121212))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        SectionLabel(
-            text = "ACTIVE NOTES",
-            color = Color(0xFF39FF14)
-        )
+fun PreviewSectionLabelDark() {
+    MaterialTheme(colorScheme = darkColorScheme()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Simulating "Pinned"
+            SectionLabel(
+                text = "ACTIVE NOTES",
+                color = MaterialTheme.colorScheme.primary
+            )
 
-        SectionLabel(
-            text = "ARCHIVED",
-            color = Color.Gray
-        )
+            // Simulating "Recent"
+            SectionLabel(
+                text = "ARCHIVED",
+                color = MaterialTheme.colorScheme.secondary
+            )
+        }
+    }
+}
 
-        // Custom Color
-        SectionLabel(
-            text = "IMPORTANT",
-            color = Color.Red
-        )
+@Preview(showBackground = true, name = "Section Label - Light Theme")
+@Composable
+fun PreviewSectionLabelLight() {
+    MaterialTheme(colorScheme = lightColorScheme()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            SectionLabel(
+                text = "ACTIVE NOTES",
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            SectionLabel(
+                text = "ARCHIVED",
+                color = MaterialTheme.colorScheme.secondary
+            )
+        }
     }
 }

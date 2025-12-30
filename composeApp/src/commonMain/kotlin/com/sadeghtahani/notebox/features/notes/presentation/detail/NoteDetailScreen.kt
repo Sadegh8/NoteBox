@@ -2,6 +2,8 @@ package com.sadeghtahani.notebox.features.notes.presentation.detail
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -15,23 +17,27 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.sadeghtahani.notebox.core.theme.*
 import com.sadeghtahani.notebox.features.notes.presentation.detail.components.*
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.DetailUiState
+import com.sadeghtahani.notebox.features.notes.presentation.detail.data.FormattingType
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.NoteDetailUi
+import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.MarkdownVisualTransformation
+import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.applyFormatting
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
-// 1. STATEFUL
+// STATEFUL
 @Composable
 fun NoteDetailScreen(
     noteId: Long?,
@@ -42,86 +48,177 @@ fun NoteDetailScreen(
     )
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val isDark = isSystemInDarkTheme()
+
+    // Dialogs
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showAddTagDialog by remember { mutableStateOf(false) }
+    var newTagText by remember { mutableStateOf("") }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Note") },
+            text = { Text("Are you sure?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteNote { showDeleteDialog = false; onBackClick() }
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        )
+    }
+
+    if (showAddTagDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddTagDialog = false },
+            title = { Text("Add Tag") },
+            text = {
+                OutlinedTextField(
+                    value = newTagText,
+                    onValueChange = { if (it.length <= 15) newTagText = it },
+                    label = { Text("Tag Name") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showAddTagDialog = false },
+                    enabled = newTagText.isNotBlank()
+                ) { Text("Add") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showAddTagDialog = false
+                }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurface) }
+            }
+        )
+    }
 
     when (val state = uiState) {
-        is DetailUiState.Loading -> {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        }
+        is DetailUiState.Loading -> Box(
+            Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) }
 
-        is DetailUiState.Error -> {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(state.message, color = Color.Red)
-            }
-        }
+        is DetailUiState.Error -> Box(
+            Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) { Text(state.message, color = MaterialTheme.colorScheme.error) }
 
         is DetailUiState.Success -> {
-            // We use a local state initialized from the DB data
-            // This ensures instant typing response without waiting for DB roundtrips on every keystroke
             var currentNote by remember(state.note) { mutableStateOf(state.note) }
+            var contentFieldValue by remember(state.note.content) {
+                mutableStateOf(TextFieldValue(state.note.content))
+            }
+
+            // Sync
+            LaunchedEffect(contentFieldValue.text) {
+                if (currentNote.content != contentFieldValue.text) {
+                    currentNote = currentNote.copy(content = contentFieldValue.text)
+                }
+            }
+
+            // Tag Logic
+            if (!showAddTagDialog && newTagText.isNotBlank()) {
+                if (!currentNote.tags.contains(newTagText)) currentNote =
+                    currentNote.copy(tags = currentNote.tags + newTagText)
+                newTagText = ""
+            }
 
             NoteDetailContent(
                 noteUi = currentNote,
-                isDark = isDark,
+                contentFieldValue = contentFieldValue,
                 onBackClick = onBackClick,
                 onTitleChange = { currentNote = currentNote.copy(title = it) },
-                onContentChange = { currentNote = currentNote.copy(content = it) },
+                onContentChange = { newValue ->
+                    val autoListValue = handleAutoList(contentFieldValue, newValue)
+                    contentFieldValue = autoListValue
+                },
                 onFavoriteToggle = {
                     currentNote = currentNote.copy(isFavorite = !currentNote.isFavorite)
                 },
-                onSaveClick = {
-                    viewModel.saveNote(currentNote)
-                    onBackClick()
+                onSaveClick = { viewModel.saveNote(currentNote); onBackClick() },
+                onDeleteClick = { showDeleteDialog = true },
+                onAddTagClick = { showAddTagDialog = true },
+                onFormatClick = { type ->
+                    contentFieldValue = applyFormatting(contentFieldValue, type)
                 }
             )
         }
     }
 }
 
-// 2. STATELESS
+// LOGIC: Auto-insert Bullet when pressing Enter
+private fun handleAutoList(oldValue: TextFieldValue, newValue: TextFieldValue): TextFieldValue {
+    if (newValue.text.length > oldValue.text.length) {
+        if (newValue.text.endsWith("\n") && oldValue.text.isNotEmpty()) {
+            val cursor = oldValue.selection.end
+            val textBefore = oldValue.text.substring(0, cursor)
+            val lineStart = textBefore.lastIndexOf('\n') + 1
+            val currentLine = textBefore.substring(lineStart)
+
+            if (currentLine.trim().startsWith("-")) {
+                val newText = newValue.text + "- "
+                return newValue.copy(
+                    text = newText,
+                    selection = TextRange(newText.length)
+                )
+            }
+        }
+    }
+    return newValue
+}
+
+// STATELESS
 @Composable
 fun NoteDetailContent(
     noteUi: NoteDetailUi,
-    isDark: Boolean,
+    contentFieldValue: TextFieldValue,
     onBackClick: () -> Unit,
     onTitleChange: (String) -> Unit,
-    onContentChange: (String) -> Unit,
+    onContentChange: (TextFieldValue) -> Unit,
     onFavoriteToggle: () -> Unit,
-    onSaveClick: () -> Unit
+    onSaveClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onAddTagClick: () -> Unit,
+    onFormatClick: (FormattingType) -> Unit
 ) {
-    val bgColor = if (isDark) DarkDetailBackground else Color(0xFFf6f8f6)
-    val surfaceColor = if (isDark) DarkDetailSurface else Color.White
-    val textColor = if (isDark) Color.White else Color(0xFF1e293b)
-    val secondaryText = if (isDark) DarkTextSecondary else Color.Gray
-    val primaryColor = NeonGreen
+    // Access Theme Colors
+    val colors = MaterialTheme.colorScheme
+    val isDark =
+        isSystemInDarkTheme() // Kept specifically for components that still need boolean logic (like Markdown helpers)
+
+    val focusRequester = remember { FocusRequester() }
+    val interactionSource = remember { MutableInteractionSource() }
 
     Scaffold(
-        modifier = Modifier.fillMaxSize().systemBarsPadding(),
-        containerColor = bgColor,
+        modifier = Modifier.fillMaxSize(),
+        containerColor = colors.background,
         topBar = {
-            DetailTopBar(
-                isDark = isDark,
-                onBackClick = onBackClick,
-                isFavorite = noteUi.isFavorite,
-                onFavoriteClick = onFavoriteToggle
-            )
+            Box(modifier = Modifier.statusBarsPadding()) {
+                DetailTopBar(isDark, onBackClick, onFavoriteToggle, noteUi.isFavorite)
+            }
         },
         floatingActionButton = {
             Box(
-                modifier = Modifier
+                Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 24.dp),
+                    .padding(bottom = 24.dp)
+                    .navigationBarsPadding()
+                    .imePadding(),
                 contentAlignment = Alignment.Center
             ) {
-                EditorToolbar(isDark, primaryColor, onSaveClick = onSaveClick)
+                EditorToolbar(
+                    onSaveClick = onSaveClick,
+                    onDeleteClick = onDeleteClick,
+                    onFormatClick = onFormatClick
+                )
             }
         },
         floatingActionButtonPosition = FabPosition.Center
@@ -139,32 +236,35 @@ fun NoteDetailContent(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(
-                    modifier = Modifier
-                        .background(primaryColor.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
+                    Modifier
+                        .background(colors.primary.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
                         "Personal",
-                        color = primaryColor,
+                        color = colors.primary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
-                Text(noteUi.lastEdited, color = secondaryText, fontSize = 12.sp)
+                Text(
+                    noteUi.lastEdited,
+                    color = colors.onSurfaceVariant, // Secondary Text
+                    fontSize = 12.sp
+                )
             }
+            Spacer(Modifier.height(16.dp))
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Title Input
+            // Title
             BasicTextField(
                 value = noteUi.title,
                 onValueChange = onTitleChange,
                 textStyle = TextStyle(
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
-                    color = textColor
+                    color = colors.onBackground // Primary Text
                 ),
-                cursorBrush = SolidColor(primaryColor),
+                cursorBrush = SolidColor(colors.primary),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
@@ -174,106 +274,100 @@ fun NoteDetailContent(
                         "Untitled Note",
                         fontSize = 30.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Gray
+                        color = colors.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                 }
                 innerTextField()
             }
+            Spacer(Modifier.height(24.dp))
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Tags Row
+            // Tags
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(noteUi.tags) { tag ->
-                    TagChip(tag, isDark, primaryColor)
+                items(noteUi.tags) {
+                    TagChip(it, onDelete = { /* TODO */ })
                 }
                 item {
-                    AddTagButton(isDark, primaryColor)
+                    AddTagButton(onClick = onAddTagClick)
                 }
             }
+            Spacer(Modifier.height(24.dp))
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Editor Surface
+            // Editor
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(surfaceColor)
+                    .background(colors.surface)
                     .border(
                         1.dp,
-                        if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.05f),
+                        colors.outline.copy(alpha = 0.1f), // Standard outline
                         RoundedCornerShape(16.dp)
                     )
-                    .heightIn(min = 500.dp) // Minimum height as per design
+                    .heightIn(min = 500.dp)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null
+                    ) { focusRequester.requestFocus() }
                     .padding(16.dp)
             ) {
                 BasicTextField(
-                    value = noteUi.content,
+                    value = contentFieldValue,
                     onValueChange = onContentChange,
+                    visualTransformation = remember(isDark) {
+                        MarkdownVisualTransformation(
+                            textColor = colors.onSurface,
+                            primaryColor = colors.primary
+                        )
+                    },
                     textStyle = TextStyle(
                         fontSize = 16.sp,
-                        color = if (isDark) Color(0xFFe2e8f0) else Color(0xFF334155),
+                        color = colors.onSurface,
                         lineHeight = 24.sp
                     ),
-                    cursorBrush = SolidColor(primaryColor),
-                    modifier = Modifier.fillMaxSize()
+                    cursorBrush = SolidColor(colors.primary),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .focusRequester(focusRequester)
                 ) { innerTextField ->
-                    if (noteUi.content.isEmpty()) {
-                        Text("Start typing...", fontSize = 16.sp, color = Color.Gray)
+                    if (contentFieldValue.text.isEmpty()) {
+                        Text(
+                            "Start typing...",
+                            fontSize = 16.sp,
+                            color = colors.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
                     }
                     innerTextField()
                 }
             }
-
-            // Extra space for FAB
-            Spacer(modifier = Modifier.height(100.dp))
+            Spacer(Modifier.height(100.dp))
         }
     }
 }
 
-// 3. PREVIEWS
-
+// PREVIEWS
 @Preview
 @Composable
 private fun PreviewDetailDark() {
-    MaterialTheme {
+    MaterialTheme(colorScheme = darkColorScheme()) {
         NoteDetailContent(
             noteUi = NoteDetailUi(
                 title = "Project Ideas 2024",
                 content = "Refine roadmap...",
                 tags = listOf("ideas", "work")
             ),
-            isDark = true,
+            contentFieldValue = TextFieldValue("Refine roadmap..."),
             onBackClick = {},
             onTitleChange = {},
             onContentChange = {},
             onFavoriteToggle = {},
             onSaveClick = {},
-        )
-    }
-}
-
-@Preview
-@Composable
-private fun PreviewDetailLight() {
-    MaterialTheme {
-        NoteDetailContent(
-            noteUi = NoteDetailUi(
-                title = "Project Ideas 2024",
-                content = "Refine roadmap...",
-                tags = listOf("ideas", "work")
-            ),
-            isDark = false,
-            onBackClick = {},
-            onTitleChange = {},
-            onContentChange = {},
-            onFavoriteToggle = {},
-            onSaveClick = {},
+            onDeleteClick = {},
+            onAddTagClick = {},
+            onFormatClick = {}
         )
     }
 }

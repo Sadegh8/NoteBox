@@ -5,6 +5,7 @@ import com.sadeghtahani.notebox.features.notes.data.local.database.AppDatabase
 import com.sadeghtahani.notebox.features.notes.data.local.database.getDatabaseBuilder
 import com.sadeghtahani.notebox.features.notes.data.repo.NoteRepositoryImpl
 import com.sadeghtahani.notebox.features.notes.domain.repo.NoteRepository
+import com.sadeghtahani.notebox.features.notes.domain.usecase.DeleteNoteUseCase
 import com.sadeghtahani.notebox.features.notes.domain.usecase.GetNoteByIdUseCase
 import com.sadeghtahani.notebox.features.notes.domain.usecase.GetNotesUseCase
 import com.sadeghtahani.notebox.features.notes.domain.usecase.SaveNoteUseCase
@@ -34,10 +35,11 @@ val appModule = module {
     factory { GetNotesUseCase(get()) }
     factory { GetNoteByIdUseCase(get()) }
     factory { SaveNoteUseCase(get()) }
+    factory { DeleteNoteUseCase(get()) }
 
     // ViewModels
     viewModel { NoteListViewModel(get()) }
     viewModel { (noteId: Long?) ->
-        NoteDetailViewModel(noteId, get(), get())
+        NoteDetailViewModel(noteId, get(), get(), get())
     }
 }

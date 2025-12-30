@@ -17,9 +17,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.sadeghtahani.notebox.core.theme.*
 import com.sadeghtahani.notebox.features.notes.presentation.list.components.*
-import com.sadeghtahani.notebox.features.notes.presentation.list.data.NoteListThemeColors
 import com.sadeghtahani.notebox.features.notes.presentation.list.data.NoteListUiState
 import com.sadeghtahani.notebox.features.notes.presentation.list.data.NoteUi
 import com.sadeghtahani.notebox.features.notes.presentation.util.getDummyNotes
@@ -31,50 +29,21 @@ import org.koin.compose.viewmodel.koinViewModel
 fun NoteListScreen(
     onNoteClick: (Long) -> Unit,
 ) {
-    // 1. Inject ViewModel via Koin
     val viewModel = koinViewModel<NoteListViewModel>()
-
-    // 2. Collect State safely (Aware of Lifecycle)
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     var isGridView by remember { mutableStateOf(false) }
-
     var selectedFilter by remember { mutableStateOf("All") }
 
-    // Theme Logic
-    val isDark = isSystemInDarkTheme()
-    val themeColors = if (isDark) {
-        NoteListThemeColors(
-            background = DarkBackground,
-            surface = DarkSurface,
-            textPrimary = Color.White,
-            textSecondary = TextGray,
-            accent = NeonGreen
-        )
-    } else {
-        NoteListThemeColors(
-            background = LightBackground,
-            surface = LightSurface,
-            textPrimary = TextDark,
-            textSecondary = Color.Gray,
-            accent = NeonGreen
-        )
-    }
-
     val renderContent: @Composable (List<NoteUi>) -> Unit = { notes ->
-        // OPTIONAL: Filter the list based on selection locally (or do this in ViewModel)
         val filteredNotes = if (selectedFilter == "All") notes else notes.filter {
-            if (selectedFilter == "Favorites") false /* Add isFavorite to NoteUi first */ else it.tag.equals(
-                selectedFilter,
-                ignoreCase = true
-            )
+            if (selectedFilter == "Favorites") false /* Add isFavorite to NoteUi first */
+            else it.tag.equals(selectedFilter, ignoreCase = true)
         }
 
         NoteListContent(
-            notes = filteredNotes, // Pass filtered notes
-            isDark = isDark,
+            notes = filteredNotes,
             isGridView = isGridView,
-            themeColors = themeColors,
             selectedFilter = selectedFilter,
             onNoteClick = onNoteClick,
             onAddClick = { onNoteClick(0) },
@@ -89,7 +58,8 @@ fun NoteListScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = androidx.compose.ui.Alignment.Center
             ) {
-                CircularProgressIndicator(color = themeColors.accent)
+                // Uses the Primary color defined in your AppTheme
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         }
 
@@ -102,9 +72,7 @@ fun NoteListScreen(
 @Composable
 fun NoteListContent(
     notes: List<NoteUi>,
-    isDark: Boolean,
     isGridView: Boolean,
-    themeColors: NoteListThemeColors,
     selectedFilter: String,
     onNoteClick: (Long) -> Unit,
     onAddClick: () -> Unit,
@@ -113,14 +81,15 @@ fun NoteListContent(
 ) {
     val pinnedNotes = remember(notes) { notes.filter { it.isPinned } }
     val recentNotes = remember(notes) { notes.filter { !it.isPinned } }
+    val colors = MaterialTheme.colorScheme
 
     Scaffold(
-        containerColor = themeColors.background,
+        containerColor = colors.background,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddClick,
-                containerColor = themeColors.accent,
-                contentColor = Color.Black,
+                containerColor = colors.primary,
+                contentColor = colors.onPrimary,
                 shape = RoundedCornerShape(20.dp),
                 modifier = Modifier.size(72.dp)
             ) {
@@ -133,18 +102,16 @@ fun NoteListContent(
         }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
-            if (isDark) {
-                Box(
-                    modifier = Modifier
-                        .offset(x = (-100).dp, y = (-100).dp)
-                        .size(300.dp)
-                        .background(
-                            Brush.radialGradient(
-                                listOf(themeColors.accent.copy(alpha = 0.1f), Color.Transparent)
-                            )
+            Box(
+                modifier = Modifier
+                    .offset(x = (-100).dp, y = (-100).dp)
+                    .size(300.dp)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(colors.primary.copy(alpha = 0.1f), Color.Transparent)
                         )
-                )
-            }
+                    )
+            )
 
             Column(
                 modifier = Modifier
@@ -161,12 +128,11 @@ fun NoteListContent(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
 
-                    // --- Header --- (Spans Full Width)
                     item(span = StaggeredGridItemSpan.FullLine) {
                         HeaderSection(
-                            textColor = themeColors.textPrimary,
-                            surfaceColor = themeColors.surface,
-                            primaryColor = themeColors.accent,
+                            textColor = colors.onBackground,
+                            surfaceColor = colors.surface,
+                            primaryColor = colors.primary,
                             isGridView = isGridView,
                             onToggleView = onToggleView
                         )
@@ -174,15 +140,13 @@ fun NoteListContent(
 
                     item(span = StaggeredGridItemSpan.FullLine) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        SearchBar(isDark = isDark)
+                        SearchBar()
                     }
 
                     item(span = StaggeredGridItemSpan.FullLine) {
                         Spacer(modifier = Modifier.height(8.dp))
 
                         FilterSection(
-                            isDark = isDark,
-                            primaryColor = themeColors.accent,
                             selectedFilter = selectedFilter,
                             onFilterClick = onFilterClick
                         )
@@ -192,14 +156,12 @@ fun NoteListContent(
 
                     if (pinnedNotes.isNotEmpty()) {
                         item(span = StaggeredGridItemSpan.FullLine) {
-                            SectionLabel("PINNED NOTES", themeColors.accent)
+                            SectionLabel("PINNED NOTES", colors.primary)
                         }
 
                         items(pinnedNotes) { note ->
                             NoteCard(
                                 note = note,
-                                isDark = isDark,
-                                primaryColor = themeColors.accent,
                                 onClick = onNoteClick
                             )
                         }
@@ -210,14 +172,12 @@ fun NoteListContent(
                     }
 
                     item(span = StaggeredGridItemSpan.FullLine) {
-                        SectionLabel("RECENT NOTES", themeColors.textSecondary)
+                        SectionLabel("RECENT NOTES", colors.secondary)
                     }
 
                     items(recentNotes) { note ->
                         NoteCard(
                             note = note,
-                            isDark = isDark,
-                            primaryColor = themeColors.accent,
                             onClick = onNoteClick
                         )
                     }
@@ -234,24 +194,23 @@ fun NoteListContent(
 @Preview
 @Composable
 private fun PreviewNoteListScreenDark() {
-    val dummyColors = NoteListThemeColors(
-        background = DarkBackground,
-        surface = DarkSurface,
-        textPrimary = Color.White,
-        textSecondary = TextGray,
-        accent = NeonGreen
-    )
-
-    MaterialTheme {
+    // Simulating Dark Theme Setup
+    MaterialTheme(
+        colorScheme = darkColorScheme(
+            primary = Color(0xFF86d678), // NeonGreen
+            background = Color(0xFF121412),
+            onBackground = Color.White,
+            surface = Color(0xFF1e211e),
+            secondary = Color(0xFFc4c7c5)
+        )
+    ) {
         NoteListContent(
             notes = getDummyNotes(),
-            isDark = true,
-            themeColors = dummyColors,
+            isGridView = true,
+            selectedFilter = "Work",
             onNoteClick = {},
             onAddClick = {},
             onToggleView = {},
-            isGridView = true,
-            selectedFilter = "Work",
             onFilterClick = {}
         )
     }
@@ -260,24 +219,22 @@ private fun PreviewNoteListScreenDark() {
 @Preview
 @Composable
 private fun PreviewNoteListScreenLight() {
-    val dummyColors = NoteListThemeColors(
-        background = LightBackground,
-        surface = LightSurface,
-        textPrimary = TextDark,
-        textSecondary = Color.Gray,
-        accent = NeonGreen
-    )
-
-    MaterialTheme {
+    MaterialTheme(
+        colorScheme = lightColorScheme(
+            primary = Color(0xFF2e7d32),
+            background = Color(0xFFF5F7F5),
+            onBackground = Color(0xFF1A1C19),
+            surface = Color(0xFFFFFFFF),
+            secondary = Color.Gray
+        )
+    ) {
         NoteListContent(
             notes = getDummyNotes(),
-            isDark = false,
-            themeColors = dummyColors,
+            isGridView = false,
+            selectedFilter = "Work",
             onNoteClick = {},
             onAddClick = {},
             onToggleView = {},
-            isGridView = false,
-            selectedFilter = "Work",
             onFilterClick = {}
         )
     }

@@ -52,7 +52,7 @@ fun MainNavigation() {
 
                 composable<Route.Detail> { backStackEntry ->
                     val route: Route.Detail = backStackEntry.toRoute()
-                    NoteDetailScreen(noteId = route.noteId)
+                    NoteDetailScreen(noteId = route.noteId, onBackClick = { navController.popBackStack() })
                 }
             }
         }

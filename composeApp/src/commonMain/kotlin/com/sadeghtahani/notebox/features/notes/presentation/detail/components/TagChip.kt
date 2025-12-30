@@ -2,16 +2,11 @@ package com.sadeghtahani.notebox.features.notes.presentation.detail.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Tag
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,55 +18,61 @@ import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
-fun TagChip(text: String, isDark: Boolean, primaryColor: Color, onDelete: () -> Unit = {}) {
-    val bgColor = if (isDark) Color(0xFF2a4625) else Color.White
-    val borderColor = if (isDark) Color.Transparent else Color.LightGray
+fun TagChip(
+    text: String,
+    onDelete: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val colors = MaterialTheme.colorScheme
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(bgColor)
-            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .background(colors.primary.copy(alpha = 0.1f))
+            .border(
+                1.dp,
+                colors.primary.copy(alpha = 0.2f),
+                RoundedCornerShape(8.dp)
+            )
+            .padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Icon(
-            Icons.Default.Tag,
+            imageVector = Icons.Default.Tag,
             contentDescription = null,
-            tint = if (isDark) primaryColor else Color.Gray,
+            tint = colors.primary,
             modifier = Modifier.size(14.dp)
         )
         Text(
             text = text,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            color = if (isDark) Color.White else Color.DarkGray
+            color = colors.onSurface
         )
     }
 }
 
+// --- PREVIEWS ---
 
 @Preview(name = "Tag Chips - Dark Mode")
 @Composable
 fun PreviewTagChipDark() {
-    Column(
-        modifier = Modifier
-            .background(Color(0xFF0F0F0F))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TagChip(
-                text = "Work",
-                isDark = true,
-                primaryColor = Color(0xFF39FF14)
-            )
-            TagChip(
-                text = "Important",
-                isDark = true,
-                primaryColor = Color(0xFF39FF14)
-            )
+    MaterialTheme(colorScheme = darkColorScheme(
+        primary = Color(0xFF86d678),
+        background = Color(0xFF0F0F0F),
+        onSurface = Color.White
+    )) {
+        Column(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.background)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TagChip(text = "Work")
+                TagChip(text = "Important")
+            }
         }
     }
 }
@@ -79,23 +80,21 @@ fun PreviewTagChipDark() {
 @Preview(name = "Tag Chips - Light Mode")
 @Composable
 fun PreviewTagChipLight() {
-    Column(
-        modifier = Modifier
-            .background(Color(0xFFF5F5F5))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TagChip(
-                text = "Personal",
-                isDark = false,
-                primaryColor = Color(0xFF2196F3)
-            )
-            TagChip(
-                text = "Travel",
-                isDark = false,
-                primaryColor = Color(0xFF2196F3)
-            )
+    MaterialTheme(colorScheme = lightColorScheme(
+        primary = Color(0xFF2e7d32),
+        background = Color(0xFFF5F5F5),
+        onSurface = Color(0xFF1A1C19)
+    )) {
+        Column(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.background)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TagChip(text = "Personal")
+                TagChip(text = "Travel")
+            }
         }
     }
 }
@@ -103,21 +102,15 @@ fun PreviewTagChipLight() {
 @Preview(name = "Tag Chips - Mixed Sizes")
 @Composable
 fun PreviewTagChipVariants() {
-    Column(
-        modifier = Modifier
-            .background(Color(0xFF1A1A1A))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        TagChip(
-            text = "Project Research 2024",
-            isDark = true,
-            primaryColor = Color(0xFFBB86FC)
-        )
-        TagChip(
-            text = "Ideas",
-            isDark = true,
-            primaryColor = Color(0xFFBB86FC)
-        )
+    MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xFFBB86FC))) {
+        Column(
+            modifier = Modifier
+                .background(Color(0xFF1A1A1A))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            TagChip(text = "Project Research 2024")
+            TagChip(text = "Ideas")
+        }
     }
 }

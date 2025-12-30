@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
@@ -26,13 +27,11 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
 fun FilterSection(
+    tags: List<String>,
     selectedFilter: String,
     onFilterClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val chips = listOf("All", "Favorites", "Work", "Personal", "Ideas")
-
-    // Grab theme colors once to keep the loop clean
     val primary = MaterialTheme.colorScheme.primary
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
@@ -40,9 +39,13 @@ fun FilterSection(
 
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
+        // 2. Add content padding.
+        // 'end = 24.dp' ensures the last item has breathing room from the screen edge when scrolled.
+        // 'start = 0.dp' assumes the parent already has left padding.
+        contentPadding = PaddingValues(end = 24.dp),
         modifier = modifier.fillMaxWidth()
     ) {
-        items(chips) { chip ->
+        items(tags) { chip ->
             val isSelected = chip == selectedFilter
 
             // Theme-aware color logic
@@ -80,7 +83,6 @@ fun FilterSection(
 }
 
 // --- PREVIEWS ---
-
 @Preview(name = "Dark Theme - Neon Green")
 @Composable
 fun PreviewFilterSectionDark() {
@@ -98,7 +100,8 @@ fun PreviewFilterSectionDark() {
         ) {
             FilterSection(
                 selectedFilter = "Favorites",
-                onFilterClick = {}
+                onFilterClick = {},
+                tags = listOf("All", "Work", "Favorites")
             )
         }
     }
@@ -121,7 +124,8 @@ fun PreviewFilterSectionLight() {
         ) {
             FilterSection(
                 selectedFilter = "Favorites",
-                onFilterClick = {}
+                onFilterClick = {},
+                tags = listOf("All", "Work", "Favorites")
             )
         }
     }

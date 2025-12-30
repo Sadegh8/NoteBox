@@ -4,14 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sadeghtahani.notebox.features.notes.domain.usecase.DeleteNoteUseCase
 import com.sadeghtahani.notebox.features.notes.domain.usecase.GetNoteByIdUseCase
+import com.sadeghtahani.notebox.features.notes.domain.usecase.GetNotesUseCase
 import com.sadeghtahani.notebox.features.notes.domain.usecase.SaveNoteUseCase
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.DetailUiState
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.NoteDetailUi
 import com.sadeghtahani.notebox.features.notes.presentation.detail.mapper.toDetailUi
 import com.sadeghtahani.notebox.features.notes.presentation.detail.mapper.toDomain
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class NoteDetailViewModel(
@@ -19,10 +18,23 @@ class NoteDetailViewModel(
     private val getNoteByIdUseCase: GetNoteByIdUseCase,
     private val saveNoteUseCase: SaveNoteUseCase,
     private val deleteNoteUseCase: DeleteNoteUseCase,
+    getNotesUseCase: GetNotesUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<DetailUiState>(DetailUiState.Loading)
     val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
+
+    val existingTags: StateFlow<List<String>> = getNotesUseCase()
+        .map { notes ->
+            val defaults = listOf("All", "Work", "Personal", "Ideas", "Important")
+            val userTags = notes.flatMap { it.tags }
+            (defaults + userTags).distinct().sorted()
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     init {
         loadNote()
@@ -56,7 +68,6 @@ class NoteDetailViewModel(
                 onSuccess()
             }
         } else {
-            // If it's a new note that hasn't been saved, just navigate back
             onSuccess()
         }
     }

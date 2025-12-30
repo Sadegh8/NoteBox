@@ -1,7 +1,9 @@
 package com.sadeghtahani.notebox.features.notes.presentation.detail.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,10 +19,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TagChip(
     text: String,
-    onDelete: () -> Unit = {},
+    onLongClick: () -> Unit = {},
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.colorScheme
@@ -33,6 +37,11 @@ fun TagChip(
                 1.dp,
                 colors.primary.copy(alpha = 0.2f),
                 RoundedCornerShape(8.dp)
+            )
+            // Combined clickable handles both interactions
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
             )
             .padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -54,7 +63,6 @@ fun TagChip(
 }
 
 // --- PREVIEWS ---
-
 @Preview(name = "Tag Chips - Dark Mode")
 @Composable
 fun PreviewTagChipDark() {

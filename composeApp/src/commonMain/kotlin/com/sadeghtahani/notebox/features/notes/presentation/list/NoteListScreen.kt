@@ -36,10 +36,12 @@ fun NoteListScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val selectedFilter by viewModel.selectedFilter.collectAsStateWithLifecycle()
     val isGridView by viewModel.isGridView.collectAsStateWithLifecycle()
+    val tags by viewModel.tags.collectAsStateWithLifecycle()
 
     val renderContent: @Composable (List<NoteUi>) -> Unit = { notes ->
         NoteListContent(
             notes = notes,
+            tags = tags,
             searchQuery = searchQuery,
             isGridView = isGridView,
             selectedFilter = selectedFilter,
@@ -73,6 +75,7 @@ fun NoteListScreen(
 @Composable
 fun NoteListContent(
     notes: List<NoteUi>,
+    tags: List<String>,
     searchQuery: String,
     isGridView: Boolean,
     selectedFilter: String,
@@ -155,7 +158,8 @@ fun NoteListContent(
 
                         FilterSection(
                             selectedFilter = selectedFilter,
-                            onFilterClick = onFilterClick
+                            onFilterClick = onFilterClick,
+                            tags = tags
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -252,6 +256,7 @@ private fun PreviewNoteListScreenDark() {
             searchQuery = "",
             onSearchQueryChange = {},
             onPinClick = {},
+            tags = listOf("All", "Work", "Favorites")
         )
     }
 }
@@ -278,7 +283,8 @@ private fun PreviewNoteListScreenLight() {
             onFilterClick = {},
             searchQuery = "",
             onSearchQueryChange = {},
-            onPinClick = {}
+            onPinClick = {},
+            tags = listOf("All", "Work", "Favorites")
         )
     }
 }

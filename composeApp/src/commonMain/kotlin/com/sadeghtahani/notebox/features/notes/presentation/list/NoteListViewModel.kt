@@ -9,6 +9,7 @@ import com.sadeghtahani.notebox.features.notes.presentation.list.data.NoteListUi
 import com.sadeghtahani.notebox.features.notes.presentation.list.mapper.toUi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlin.collections.listOf
 
 class NoteListViewModel(
     getNotesUseCase: GetNotesUseCase,
@@ -27,6 +28,25 @@ class NoteListViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = false
+        )
+
+    val tags: StateFlow<List<String>> = getNotesUseCase()
+        .map { notes ->
+            val defaultTags = listOf("All", "Work", "Personal", "Ideas", "Important")
+
+
+            val userTags = notes
+                .flatMap { it.tags }
+                .distinct()
+                .sorted()
+
+            defaultTags + userTags
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = listOf("All", "Work", "Personal", "Ideas", "Important")
+
         )
 
     val uiState: StateFlow<NoteListUiState> = combine(
@@ -58,12 +78,11 @@ class NoteListViewModel(
         } else {
             NoteListUiState.Success(resultingNotes.map { it.toUi() })
         }
-    }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = NoteListUiState.Loading
-        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = NoteListUiState.Loading
+    )
 
     fun onSearchQueryChange(newQuery: String) {
         _searchQuery.value = newQuery

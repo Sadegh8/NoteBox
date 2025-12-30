@@ -15,29 +15,31 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sadeghtahani.notebox.features.notes.presentation.common.CommonBackHandler
 import com.sadeghtahani.notebox.features.notes.presentation.detail.components.*
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.DetailUiState
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.FormattingType
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.NoteDetailUi
 import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.MarkdownVisualTransformation
 import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.applyFormatting
+import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.handleAutoList
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
-// STATEFUL
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun NoteDetailScreen(
     noteId: Long?,
@@ -48,23 +50,24 @@ fun NoteDetailScreen(
     )
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val existingTags by viewModel.existingTags.collectAsStateWithLifecycle()
 
-    // Dialogs
+    // Dialog States
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showAddTagDialog by remember { mutableStateOf(false) }
+    var tagToDelete by remember { mutableStateOf<String?>(null) } // State for tag removal
     var newTagText by remember { mutableStateOf("") }
+
 
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Delete Note") },
-            text = { Text("Are you sure?") },
+            text = { Text("Are you sure you want to delete this note?") },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.deleteNote { showDeleteDialog = false; onBackClick() }
-                }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
-                }
+                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
@@ -74,42 +77,17 @@ fun NoteDetailScreen(
         )
     }
 
-    if (showAddTagDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddTagDialog = false },
-            title = { Text("Add Tag") },
-            text = {
-                OutlinedTextField(
-                    value = newTagText,
-                    onValueChange = { if (it.length <= 15) newTagText = it },
-                    label = { Text("Tag Name") },
-                    singleLine = true
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = { showAddTagDialog = false },
-                    enabled = newTagText.isNotBlank()
-                ) { Text("Add") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showAddTagDialog = false
-                }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurface) }
-            }
-        )
-    }
-
     when (val state = uiState) {
         is DetailUiState.Loading -> Box(
             Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
-        ) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) }
+        ) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        }
 
-        is DetailUiState.Error -> Box(
-            Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) { Text(state.message, color = MaterialTheme.colorScheme.error) }
+        is DetailUiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(state.message, color = MaterialTheme.colorScheme.error)
+        }
 
         is DetailUiState.Success -> {
             var currentNote by remember(state.note) { mutableStateOf(state.note) }
@@ -117,24 +95,94 @@ fun NoteDetailScreen(
                 mutableStateOf(TextFieldValue(state.note.content))
             }
 
-            // Sync
+            // Sync Content
             LaunchedEffect(contentFieldValue.text) {
                 if (currentNote.content != contentFieldValue.text) {
                     currentNote = currentNote.copy(content = contentFieldValue.text)
                 }
             }
 
-            // Tag Logic
-            if (!showAddTagDialog && newTagText.isNotBlank()) {
-                if (!currentNote.tags.contains(newTagText)) currentNote =
-                    currentNote.copy(tags = currentNote.tags + newTagText)
-                newTagText = ""
+            val saveAndExit = {
+                viewModel.saveNote(currentNote)
+                onBackClick()
+            }
+
+            CommonBackHandler(onBack = saveAndExit)
+
+            if (tagToDelete != null) {
+                AlertDialog(
+                    onDismissRequest = { tagToDelete = null },
+                    title = { Text("Remove Tag") },
+                    text = { Text("Remove '${tagToDelete}'?") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            currentNote = currentNote.copy(tags = currentNote.tags - tagToDelete!!)
+                            tagToDelete = null
+                        }) { Text("Remove", color = MaterialTheme.colorScheme.error) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { tagToDelete = null }) { Text("Cancel") }
+                    }
+                )
+            }
+
+            // 2. Handle Add Tag
+            if (showAddTagDialog) {
+                AlertDialog(
+                    onDismissRequest = { showAddTagDialog = false },
+                    title = { Text("Add Tag") },
+                    text = {
+                        Column {
+                            OutlinedTextField(
+                                value = newTagText,
+                                onValueChange = { if (it.length <= 15) newTagText = it },
+                                label = { Text("Tag Name") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // SUGGESTIONS ROW
+                            Text("Suggestions:", style = MaterialTheme.typography.labelMedium)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(existingTags.filter { it !in currentNote.tags }) { suggestion ->
+                                    TagChip(
+                                        text = suggestion,
+                                        onClick = {
+                                            currentNote =
+                                                currentNote.copy(tags = currentNote.tags + suggestion)
+                                            showAddTagDialog = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (newTagText.isNotBlank() && !currentNote.tags.contains(newTagText)) {
+                                    currentNote =
+                                        currentNote.copy(tags = currentNote.tags + newTagText)
+                                }
+                                newTagText = ""
+                                showAddTagDialog = false
+                            },
+                            enabled = newTagText.isNotBlank()
+                        ) { Text("Add") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showAddTagDialog = false }) { Text("Cancel") }
+                    }
+                )
             }
 
             NoteDetailContent(
                 noteUi = currentNote,
                 contentFieldValue = contentFieldValue,
-                onBackClick = onBackClick,
+                // 2. Pass our custom saveAndExit to the Toolbar Back Button
+                onBackClick = saveAndExit,
                 onTitleChange = { currentNote = currentNote.copy(title = it) },
                 onContentChange = { newValue ->
                     val autoListValue = handleAutoList(contentFieldValue, newValue)
@@ -146,33 +194,13 @@ fun NoteDetailScreen(
                 onSaveClick = { viewModel.saveNote(currentNote); onBackClick() },
                 onDeleteClick = { showDeleteDialog = true },
                 onAddTagClick = { showAddTagDialog = true },
+                onTagLongClick = { tag -> tagToDelete = tag },
                 onFormatClick = { type ->
                     contentFieldValue = applyFormatting(contentFieldValue, type)
                 }
             )
         }
     }
-}
-
-// LOGIC: Auto-insert Bullet when pressing Enter
-private fun handleAutoList(oldValue: TextFieldValue, newValue: TextFieldValue): TextFieldValue {
-    if (newValue.text.length > oldValue.text.length) {
-        if (newValue.text.endsWith("\n") && oldValue.text.isNotEmpty()) {
-            val cursor = oldValue.selection.end
-            val textBefore = oldValue.text.substring(0, cursor)
-            val lineStart = textBefore.lastIndexOf('\n') + 1
-            val currentLine = textBefore.substring(lineStart)
-
-            if (currentLine.trim().startsWith("-")) {
-                val newText = newValue.text + "- "
-                return newValue.copy(
-                    text = newText,
-                    selection = TextRange(newText.length)
-                )
-            }
-        }
-    }
-    return newValue
 }
 
 // STATELESS
@@ -187,13 +215,11 @@ fun NoteDetailContent(
     onSaveClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onAddTagClick: () -> Unit,
+    onTagLongClick: (String) -> Unit,
     onFormatClick: (FormattingType) -> Unit
 ) {
-    // Access Theme Colors
     val colors = MaterialTheme.colorScheme
-    val isDark =
-        isSystemInDarkTheme() // Kept specifically for components that still need boolean logic (like Markdown helpers)
-
+    val isDark = isSystemInDarkTheme()
     val focusRequester = remember { FocusRequester() }
     val interactionSource = remember { MutableInteractionSource() }
 
@@ -207,37 +233,25 @@ fun NoteDetailContent(
         },
         floatingActionButton = {
             Box(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 24.dp)
-                    .navigationBarsPadding()
+                Modifier.fillMaxWidth().padding(bottom = 24.dp).navigationBarsPadding()
                     .imePadding(),
                 contentAlignment = Alignment.Center
             ) {
-                EditorToolbar(
-                    onSaveClick = onSaveClick,
-                    onDeleteClick = onDeleteClick,
-                    onFormatClick = onFormatClick
-                )
+                EditorToolbar(onSaveClick, onDeleteClick, onFormatClick)
             }
         },
         floatingActionButtonPosition = FabPosition.Center
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
+            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
         ) {
-            // Meta Data
             Row(
                 modifier = Modifier.padding(horizontal = 24.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(
-                    Modifier
-                        .background(colors.primary.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
+                    Modifier.background(colors.primary.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
@@ -247,27 +261,20 @@ fun NoteDetailContent(
                         fontWeight = FontWeight.Medium
                     )
                 }
-                Text(
-                    noteUi.lastEdited,
-                    color = colors.onSurfaceVariant, // Secondary Text
-                    fontSize = 12.sp
-                )
+                Text(noteUi.lastEdited, color = colors.onSurfaceVariant, fontSize = 12.sp)
             }
             Spacer(Modifier.height(16.dp))
 
-            // Title
             BasicTextField(
                 value = noteUi.title,
                 onValueChange = onTitleChange,
                 textStyle = TextStyle(
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
-                    color = colors.onBackground // Primary Text
+                    color = colors.onBackground
                 ),
                 cursorBrush = SolidColor(colors.primary),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
             ) { innerTextField ->
                 if (noteUi.title.isEmpty()) {
                     Text(
@@ -281,13 +288,15 @@ fun NoteDetailContent(
             }
             Spacer(Modifier.height(24.dp))
 
-            // Tags
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(noteUi.tags) {
-                    TagChip(it, onDelete = { /* TODO */ })
+                items(noteUi.tags) { tag ->
+                    TagChip(
+                        text = tag,
+                        onLongClick = { onTagLongClick(tag) }
+                    )
                 }
                 item {
                     AddTagButton(onClick = onAddTagClick)
@@ -295,18 +304,12 @@ fun NoteDetailContent(
             }
             Spacer(Modifier.height(24.dp))
 
-            // Editor
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth().padding(horizontal = 16.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(colors.surface)
-                    .border(
-                        1.dp,
-                        colors.outline.copy(alpha = 0.1f), // Standard outline
-                        RoundedCornerShape(16.dp)
-                    )
+                    .border(1.dp, colors.outline.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
                     .heightIn(min = 500.dp)
                     .clickable(
                         interactionSource = interactionSource,
@@ -319,8 +322,8 @@ fun NoteDetailContent(
                     onValueChange = onContentChange,
                     visualTransformation = remember(isDark) {
                         MarkdownVisualTransformation(
-                            textColor = colors.onSurface,
-                            primaryColor = colors.primary
+                            colors.onSurface,
+                            colors.primary
                         )
                     },
                     textStyle = TextStyle(
@@ -329,9 +332,7 @@ fun NoteDetailContent(
                         lineHeight = 24.sp
                     ),
                     cursorBrush = SolidColor(colors.primary),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .focusRequester(focusRequester)
+                    modifier = Modifier.fillMaxSize().focusRequester(focusRequester)
                 ) { innerTextField ->
                     if (contentFieldValue.text.isEmpty()) {
                         Text(
@@ -367,7 +368,8 @@ private fun PreviewDetailDark() {
             onSaveClick = {},
             onDeleteClick = {},
             onAddTagClick = {},
-            onFormatClick = {}
+            onFormatClick = {},
+            onTagLongClick = {}
         )
     }
 }

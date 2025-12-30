@@ -47,8 +47,20 @@ val appModule = module {
     factory { ToggleNotePinUseCase(get()) }
 
     // ViewModels
-    viewModel { NoteListViewModel(get(), get(), get()) }
+    viewModel {
+        NoteListViewModel(
+            get(),
+            get(),
+            get()
+        )
+    }
     viewModel { (noteId: Long?) ->
-        NoteDetailViewModel(noteId, get(), get(), get())
+        NoteDetailViewModel(
+            noteId,
+            get(),
+            get(),
+            get(),
+            get()
+        )
     }
 }

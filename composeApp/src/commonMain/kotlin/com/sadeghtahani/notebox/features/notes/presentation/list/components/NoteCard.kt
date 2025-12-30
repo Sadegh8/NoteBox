@@ -3,25 +3,12 @@ package com.sadeghtahani.notebox.features.notes.presentation.list.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,13 +25,14 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
 fun NoteCard(
+    modifier: Modifier = Modifier,
     note: NoteUi,
-    onClick: (Long) -> Unit
+    onClick: (Long) -> Unit,
+    onPinClick: (Long) -> Unit
 ) {
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(bottom = 12.dp)
             .clickable { onClick(note.id) },
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
@@ -70,23 +58,33 @@ fun NoteCard(
                     text = note.title,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
                 )
+
                 if (note.isPinned) {
                     Icon(
-                        Icons.Default.PushPin,
-                        contentDescription = "Pinned",
+                        imageVector = Icons.Default.PushPin,
+                        contentDescription = "Unpin Note",
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
-                            .size(20.dp)
+                            .size(24.dp)
                             .rotate(45f)
                             .alpha(0.8f)
+                            .clip(CircleShape)
+                            .clickable { onPinClick(note.id) }
+                            .padding(2.dp)
                     )
                 } else {
                     Text(
                         text = note.date,
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
                         modifier = Modifier
                             .background(
                                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
@@ -138,8 +136,8 @@ fun NoteCard(
 fun PreviewNoteCardPinnedDark() {
     val note = NoteUi(
         id = 1,
-        title = "Design Meeting",
-        preview = "Discussion about the new design system and component library for the upcoming project release.",
+        title = "Design Meeting with a very long title that truncates",
+        preview = "Discussion about the new design system.",
         date = "Oct 24",
         isPinned = true,
         tag = "Work",
@@ -153,10 +151,7 @@ fun PreviewNoteCardPinnedDark() {
                 .background(MaterialTheme.colorScheme.background)
                 .padding(16.dp)
         ) {
-            NoteCard(
-                note = note,
-                onClick = {}
-            )
+            NoteCard(note = note, onClick = {}, onPinClick = {})
         }
     }
 }
@@ -167,8 +162,8 @@ fun PreviewNoteCardRegularLight() {
     val note = NoteUi(
         id = 2,
         title = "Grocery List",
-        preview = "Milk, Eggs, Bread, Greek Yogurt, Avocados, and some fresh blueberries.",
-        date = "Oct 23",
+        preview = "Milk, Eggs, Bread.",
+        date = "Today",
         isPinned = false,
         tag = "Personal",
         tagColor = Color(0xFF2196F3),
@@ -181,10 +176,7 @@ fun PreviewNoteCardRegularLight() {
                 .background(MaterialTheme.colorScheme.background)
                 .padding(16.dp)
         ) {
-            NoteCard(
-                note = note,
-                onClick = {}
-            )
+            NoteCard(note = note, onClick = {}, onPinClick = {})
         }
     }
 }

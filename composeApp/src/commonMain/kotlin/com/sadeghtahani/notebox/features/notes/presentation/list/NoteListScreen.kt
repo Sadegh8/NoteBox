@@ -1,7 +1,7 @@
 package com.sadeghtahani.notebox.features.notes.presentation.list
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
@@ -20,6 +20,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sadeghtahani.notebox.features.notes.presentation.list.components.*
 import com.sadeghtahani.notebox.features.notes.presentation.list.data.NoteListUiState
 import com.sadeghtahani.notebox.features.notes.presentation.list.data.NoteUi
+import com.sadeghtahani.notebox.features.notes.presentation.util.animateEnter
 import com.sadeghtahani.notebox.features.notes.presentation.util.getDummyNotes
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
@@ -30,25 +31,25 @@ fun NoteListScreen(
     onNoteClick: (Long) -> Unit,
 ) {
     val viewModel = koinViewModel<NoteListViewModel>()
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    var isGridView by remember { mutableStateOf(false) }
-    var selectedFilter by remember { mutableStateOf("All") }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val selectedFilter by viewModel.selectedFilter.collectAsStateWithLifecycle()
+    val isGridView by viewModel.isGridView.collectAsStateWithLifecycle()
 
     val renderContent: @Composable (List<NoteUi>) -> Unit = { notes ->
-        val filteredNotes = if (selectedFilter == "All") notes else notes.filter {
-            if (selectedFilter == "Favorites") false /* Add isFavorite to NoteUi first */
-            else it.tag.equals(selectedFilter, ignoreCase = true)
-        }
-
         NoteListContent(
-            notes = filteredNotes,
+            notes = notes,
+            searchQuery = searchQuery,
             isGridView = isGridView,
             selectedFilter = selectedFilter,
             onNoteClick = onNoteClick,
             onAddClick = { onNoteClick(0) },
-            onToggleView = { isGridView = !isGridView },
-            onFilterClick = { selectedFilter = it }
+            onToggleView = viewModel::toggleView,
+            onFilterClick = viewModel::onFilterChange,
+            onSearchQueryChange = viewModel::onSearchQueryChange,
+            onPinClick = viewModel::togglePin
+
         )
     }
 
@@ -58,7 +59,6 @@ fun NoteListScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = androidx.compose.ui.Alignment.Center
             ) {
-                // Uses the Primary color defined in your AppTheme
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         }
@@ -69,15 +69,19 @@ fun NoteListScreen(
 }
 
 // STATELESS
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NoteListContent(
     notes: List<NoteUi>,
+    searchQuery: String,
     isGridView: Boolean,
     selectedFilter: String,
     onNoteClick: (Long) -> Unit,
     onAddClick: () -> Unit,
     onToggleView: () -> Unit,
     onFilterClick: (String) -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onPinClick: (Long) -> Unit
 ) {
     val pinnedNotes = remember(notes) { notes.filter { it.isPinned } }
     val recentNotes = remember(notes) { notes.filter { !it.isPinned } }
@@ -119,7 +123,6 @@ fun NoteListContent(
                     .padding(padding)
                     .padding(horizontal = 24.dp)
             ) {
-
                 LazyVerticalStaggeredGrid(
                     columns = StaggeredGridCells.Fixed(if (isGridView) 2 else 1),
                     modifier = Modifier.fillMaxSize(),
@@ -140,7 +143,11 @@ fun NoteListContent(
 
                     item(span = StaggeredGridItemSpan.FullLine) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        SearchBar()
+                        // Pass the state and event to the component
+                        SearchBar(
+                            query = searchQuery,
+                            onQueryChange = onSearchQueryChange
+                        )
                     }
 
                     item(span = StaggeredGridItemSpan.FullLine) {
@@ -154,15 +161,36 @@ fun NoteListContent(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
+                    if (notes.isEmpty() && searchQuery.isNotEmpty()) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
+                                contentAlignment = androidx.compose.ui.Alignment.Center
+                            ) {
+                                Text(
+                                    "No notes found for \"$searchQuery\"",
+                                    color = colors.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
                     if (pinnedNotes.isNotEmpty()) {
                         item(span = StaggeredGridItemSpan.FullLine) {
                             SectionLabel("PINNED NOTES", colors.primary)
                         }
 
-                        items(pinnedNotes) { note ->
+                        items(
+                            items = pinnedNotes,
+                            key = { it.id }
+                        ) { note ->
                             NoteCard(
                                 note = note,
-                                onClick = onNoteClick
+                                onClick = onNoteClick,
+                                onPinClick = onPinClick,
+                                modifier = Modifier
+                                    .animateItem()
+                                    .animateEnter(index = pinnedNotes.indexOf(note))
                             )
                         }
 
@@ -171,15 +199,24 @@ fun NoteListContent(
                         }
                     }
 
-                    item(span = StaggeredGridItemSpan.FullLine) {
-                        SectionLabel("RECENT NOTES", colors.secondary)
-                    }
+                    if (recentNotes.isNotEmpty()) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            SectionLabel("RECENT NOTES", colors.secondary)
+                        }
 
-                    items(recentNotes) { note ->
-                        NoteCard(
-                            note = note,
-                            onClick = onNoteClick
-                        )
+                        items(
+                            items = recentNotes,
+                            key = { it.id }
+                        ) { note ->
+                            NoteCard(
+                                note = note,
+                                onClick = onNoteClick,
+                                onPinClick = onPinClick,
+                                modifier = Modifier
+                                    .animateItem()
+                                    .animateEnter(index = recentNotes.indexOf(note))
+                            )
+                        }
                     }
                 }
             }
@@ -197,7 +234,7 @@ private fun PreviewNoteListScreenDark() {
     // Simulating Dark Theme Setup
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = Color(0xFF86d678), // NeonGreen
+            primary = Color(0xFF86d678),
             background = Color(0xFF121412),
             onBackground = Color.White,
             surface = Color(0xFF1e211e),
@@ -211,7 +248,10 @@ private fun PreviewNoteListScreenDark() {
             onNoteClick = {},
             onAddClick = {},
             onToggleView = {},
-            onFilterClick = {}
+            onFilterClick = {},
+            searchQuery = "",
+            onSearchQueryChange = {},
+            onPinClick = {},
         )
     }
 }
@@ -235,7 +275,10 @@ private fun PreviewNoteListScreenLight() {
             onNoteClick = {},
             onAddClick = {},
             onToggleView = {},
-            onFilterClick = {}
+            onFilterClick = {},
+            searchQuery = "",
+            onSearchQueryChange = {},
+            onPinClick = {}
         )
     }
 }

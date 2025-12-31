@@ -1,6 +1,7 @@
 package com.sadeghtahani.notebox
 
 import android.app.Application
+import com.sadeghtahani.notebox.di.androidModule
 import com.sadeghtahani.notebox.di.appModule
 import com.sadeghtahani.notebox.features.notes.data.local.database.appContext
 import org.koin.android.ext.koin.androidContext
@@ -16,6 +17,7 @@ class NoteboxApp : Application() {
             androidLogger()
             androidContext(this@NoteboxApp)
             modules(appModule)
+            modules(appModule, androidModule)
         }
     }
 }

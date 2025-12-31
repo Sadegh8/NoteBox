@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
@@ -22,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.sadeghtahani.notebox.core.theme.NeonGreen
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
@@ -29,10 +31,11 @@ fun DetailTopBar(
     isDark: Boolean,
     onBackClick: () -> Unit,
     onFavoriteClick: () -> Unit,
+    onExport: () -> Unit,
     isFavorite: Boolean
 ) {
     val animatedTint by animateColorAsState(
-        targetValue = if (isFavorite) Color.Green else if (isDark) Color.White.copy(0.5f) else Color.Black.copy(
+        targetValue = if (isFavorite) NeonGreen else if (isDark) Color.White.copy(0.5f) else Color.Black.copy(
             0.5f
         ),
         label = "Icon Tint Animation"
@@ -76,6 +79,23 @@ fun DetailTopBar(
                     tint = animatedTint
                 )
             }
+
+            IconButton(
+                onClick = onExport,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(
+                        if (isDark) Color.White.copy(alpha = 0.1f) else Color.Black.copy(
+                            alpha = 0.05f
+                        )
+                    )
+            ) {
+                Icon(
+                    Icons.Default.Save,
+                    contentDescription = "Favorite",
+                    tint = NeonGreen
+                )
+            }
         }
     }
 }
@@ -93,7 +113,8 @@ fun PreviewDetailTopBarDarkFavorite() {
             isDark = true,
             isFavorite = true,
             onBackClick = {},
-            onFavoriteClick = {}
+            onFavoriteClick = {},
+            onExport = {}
         )
     }
 }
@@ -110,7 +131,8 @@ fun PreviewDetailTopBarLight() {
             isDark = false,
             isFavorite = false,
             onBackClick = {},
-            onFavoriteClick = {}
+            onFavoriteClick = {},
+            onExport = {}
         )
     }
 }

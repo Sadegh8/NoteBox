@@ -23,21 +23,17 @@ import com.sadeghtahani.notebox.features.notes.presentation.list.NoteListScreen
 fun MainNavigation() {
     val navController = rememberNavController()
 
-    // We keep track of the selected note manually for the Two-Pane mode
     var selectedNoteId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     BoxWithConstraints {
-        // Breakpoint logic: 840dp is the standard "Expanded" threshold (Tablets/Desktop)
         val isExpanded = maxWidth >= 840.dp
 
         if (isExpanded) {
-            // --- DESKTOP / TABLET MODE (Two Pane) ---
             TwoPaneLayout(
                 selectedNoteId = selectedNoteId,
                 onNoteClick = { id -> selectedNoteId = id }
             )
         } else {
-            // --- MOBILE MODE (One Pane via NavHost) ---
             NavHost(
                 navController = navController,
                 startDestination = Route.Home
@@ -65,14 +61,12 @@ private fun TwoPaneLayout(
     onNoteClick: (Long) -> Unit
 ) {
     Row(modifier = Modifier.fillMaxSize()) {
-        // Left Pane (List) - Fixed width or weight
         BoxWithConstraints(modifier = Modifier.width(350.dp)) {
             NoteListScreen(onNoteClick = onNoteClick)
         }
 
         VerticalDivider()
 
-        // Right Pane (Detail) - Takes remaining space
         BoxWithConstraints(modifier = Modifier.weight(1f)) {
             NoteDetailScreen(noteId = selectedNoteId)
         }

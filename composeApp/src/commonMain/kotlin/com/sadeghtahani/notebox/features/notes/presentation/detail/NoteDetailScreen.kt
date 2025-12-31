@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sadeghtahani.notebox.core.util.rememberStoragePermissionLauncher
 import com.sadeghtahani.notebox.features.notes.presentation.common.CommonBackHandler
 import com.sadeghtahani.notebox.features.notes.presentation.detail.components.*
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.DetailUiState
@@ -38,6 +39,8 @@ import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.Markdo
 import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.applyFormatting
 import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.getActiveFormats
 import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.handleAutoList
+import com.sadeghtahani.notebox.openFile
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -55,14 +58,35 @@ fun NoteDetailScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val existingTags by viewModel.existingTags.collectAsStateWithLifecycle()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    val permissionLauncher = rememberStoragePermissionLauncher { isGranted ->
+        if (isGranted) {
+            viewModel.exportNote()
+        } else {
+             scope.launch { snackbarHostState.showSnackbar("Storage permission is required to export.") }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.exportEvent.collect { filePath ->
+            val result = snackbarHostState.showSnackbar(
+                message = "Note exported successfully",
+                actionLabel = "Open",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                openFile(filePath)
+            }
+        }
+    }
 
     // Dialog States
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showAddTagDialog by remember { mutableStateOf(false) }
-    var tagToDelete by remember { mutableStateOf<String?>(null) } // State for tag removal
+    var tagToDelete by remember { mutableStateOf<String?>(null) }
     var newTagText by remember { mutableStateOf("") }
-
-
 
     if (showDeleteDialog) {
         AlertDialog(
@@ -140,7 +164,6 @@ fun NoteDetailScreen(
                 )
             }
 
-            // 2. Handle Add Tag
             if (showAddTagDialog) {
                 AlertDialog(
                     onDismissRequest = { showAddTagDialog = false },
@@ -156,7 +179,6 @@ fun NoteDetailScreen(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // SUGGESTIONS ROW
                             Text("Suggestions:", style = MaterialTheme.typography.labelMedium)
                             Spacer(modifier = Modifier.height(8.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -195,6 +217,7 @@ fun NoteDetailScreen(
             NoteDetailContent(
                 noteUi = currentNote,
                 contentFieldValue = contentFieldValue,
+                snackbarHostState = snackbarHostState,
                 activeFormats = activeFormats,
                 onBackClick = saveAndExit,
                 onTitleChange = { currentNote = currentNote.copy(title = it) },
@@ -211,6 +234,9 @@ fun NoteDetailScreen(
                 onTagLongClick = { tag -> tagToDelete = tag },
                 onFormatClick = { type ->
                     contentFieldValue = applyFormatting(contentFieldValue, type)
+                },
+                onExport = {
+                    permissionLauncher.launch()
                 }
             )
         }
@@ -222,6 +248,7 @@ fun NoteDetailScreen(
 fun NoteDetailContent(
     noteUi: NoteDetailUi,
     contentFieldValue: TextFieldValue,
+    snackbarHostState: SnackbarHostState,
     onBackClick: () -> Unit,
     activeFormats: Set<FormattingType>,
     onTitleChange: (String) -> Unit,
@@ -230,6 +257,7 @@ fun NoteDetailContent(
     onSaveClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onAddTagClick: () -> Unit,
+    onExport: () -> Unit,
     onTagLongClick: (String) -> Unit,
     onFormatClick: (FormattingType) -> Unit
 ) {
@@ -241,9 +269,16 @@ fun NoteDetailContent(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = colors.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Box(modifier = Modifier.statusBarsPadding()) {
-                DetailTopBar(isDark, onBackClick, onFavoriteToggle, noteUi.isFavorite)
+                DetailTopBar(
+                    isDark = isDark,
+                    onBackClick = onBackClick,
+                    onFavoriteClick = onFavoriteToggle,
+                    isFavorite = noteUi.isFavorite,
+                    onExport = onExport
+                )
             }
         },
         floatingActionButton = {
@@ -284,7 +319,7 @@ fun NoteDetailContent(
                 Text(noteUi.lastEdited, color = colors.onSurfaceVariant, fontSize = 12.sp)
             }
             Spacer(Modifier.height(16.dp))
-
+            // ... rest of the text fields ...
             BasicTextField(
                 value = noteUi.title,
                 onValueChange = onTitleChange,
@@ -396,7 +431,9 @@ private fun PreviewDetailDark() {
             onAddTagClick = {},
             onFormatClick = {},
             onTagLongClick = {},
-            activeFormats = emptySet()
+            activeFormats = emptySet(),
+            onExport = {},
+            snackbarHostState = remember { SnackbarHostState() }
         )
     }
 }

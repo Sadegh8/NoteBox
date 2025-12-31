@@ -1,4 +1,5 @@
 package com.sadeghtahani.notebox.features.notes.data.local
+
 import androidx.room.TypeConverter
 import kotlinx.serialization.json.Json
 

@@ -1,11 +1,8 @@
-// file: composeApp/src/commonMain/kotlin/com/sadeghtahani/notebox/core/theme/Theme.kt
 package com.sadeghtahani.notebox.core.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-
 
 private val DarkColorScheme = darkColorScheme(
     primary = NeonGreen,
@@ -30,19 +27,19 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
+expect fun rememberPlatformDarkTheme(): Boolean
+
+@Composable
 fun AppTheme(
-    useDarkTheme: Boolean = isSystemInDarkTheme(),
+    useDarkTheme: Boolean = rememberPlatformDarkTheme(),
     content: @Composable () -> Unit
 ) {
     val colors = if (useDarkTheme) DarkColorScheme else LightColorScheme
 
-    // Helper to change Status Bar colors (Platform specific)
     SystemAppearance(isDark = useDarkTheme)
 
     MaterialTheme(
         colorScheme = colors,
-        // typography = Typography, // Add your typography here if you have it
-        // shapes = Shapes,         // Add your shapes here if you have it
         content = content
     )
 }

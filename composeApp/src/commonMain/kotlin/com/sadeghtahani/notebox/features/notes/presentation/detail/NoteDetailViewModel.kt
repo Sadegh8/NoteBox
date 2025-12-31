@@ -2,6 +2,7 @@ package com.sadeghtahani.notebox.features.notes.presentation.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sadeghtahani.notebox.features.notes.domain.service.FileSaver
 import com.sadeghtahani.notebox.features.notes.domain.usecase.DeleteNoteUseCase
 import com.sadeghtahani.notebox.features.notes.domain.usecase.GetNoteByIdUseCase
 import com.sadeghtahani.notebox.features.notes.domain.usecase.GetNotesUseCase
@@ -10,6 +11,7 @@ import com.sadeghtahani.notebox.features.notes.presentation.detail.data.DetailUi
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.NoteDetailUi
 import com.sadeghtahani.notebox.features.notes.presentation.detail.mapper.toDetailUi
 import com.sadeghtahani.notebox.features.notes.presentation.detail.mapper.toDomain
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -18,11 +20,15 @@ class NoteDetailViewModel(
     private val getNoteByIdUseCase: GetNoteByIdUseCase,
     private val saveNoteUseCase: SaveNoteUseCase,
     private val deleteNoteUseCase: DeleteNoteUseCase,
-    getNotesUseCase: GetNotesUseCase
+    getNotesUseCase: GetNotesUseCase,
+    private val fileSaver: FileSaver
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<DetailUiState>(DetailUiState.Loading)
     val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
+
+    private val _exportEvent = Channel<String>()
+    val exportEvent = _exportEvent.receiveAsFlow()
 
     val existingTags: StateFlow<List<String>> = getNotesUseCase()
         .map { notes ->
@@ -69,6 +75,22 @@ class NoteDetailViewModel(
             }
         } else {
             onSuccess()
+        }
+    }
+
+    fun exportNote() {
+        val note = (uiState.value as? DetailUiState.Success)?.note ?: return
+        viewModelScope.launch {
+            val result = fileSaver.saveFile(
+                fileName = note.title.ifBlank { "Untitled" },
+                content = note.content
+            )
+            if (result.isSuccess) {
+                // Send the path to the UI
+                result.getOrNull()?.let { path ->
+                    _exportEvent.send(path)
+                }
+            }
         }
     }
 }

@@ -7,6 +7,7 @@ import com.sadeghtahani.notebox.features.notes.domain.usecase.DeleteNoteUseCase
 import com.sadeghtahani.notebox.features.notes.domain.usecase.GetNoteByIdUseCase
 import com.sadeghtahani.notebox.features.notes.domain.usecase.GetNotesUseCase
 import com.sadeghtahani.notebox.features.notes.domain.usecase.SaveNoteUseCase
+import com.sadeghtahani.notebox.features.notes.presentation.detail.data.DetailUiEvent
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.DetailUiState
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.NoteDetailUi
 import com.sadeghtahani.notebox.features.notes.presentation.detail.mapper.toDetailUi
@@ -29,6 +30,9 @@ class NoteDetailViewModel(
 
     private val _exportEvent = Channel<String>()
     val exportEvent = _exportEvent.receiveAsFlow()
+
+    private val _uiEvent = Channel<DetailUiEvent>()
+    val uiEvent = _uiEvent.receiveAsFlow()
 
     val existingTags: StateFlow<List<String>> = getNotesUseCase()
         .map { notes ->
@@ -64,6 +68,16 @@ class NoteDetailViewModel(
     fun saveNote(currentUiState: NoteDetailUi) {
         viewModelScope.launch {
             saveNoteUseCase(currentUiState.toDomain())
+                .onSuccess { _uiEvent.send(DetailUiEvent.NavigateBack) }
+                .onFailure { _uiEvent.send(DetailUiEvent.ShowMessage("Cannot save empty note")) }
+        }
+    }
+
+    fun saveOnExit(currentUiState: NoteDetailUi) {
+        viewModelScope.launch {
+            saveNoteUseCase(currentUiState.toDomain())
+            // Always exit on back press, even if save failed (empty note = discard)
+            _uiEvent.send(DetailUiEvent.NavigateBack)
         }
     }
 
@@ -86,10 +100,11 @@ class NoteDetailViewModel(
                 content = note.content
             )
             if (result.isSuccess) {
-                // Send the path to the UI
                 result.getOrNull()?.let { path ->
-                    _exportEvent.send(path)
+                    _uiEvent.send(DetailUiEvent.ExportSuccess(path))
                 }
+            } else {
+                _uiEvent.send(DetailUiEvent.ShowMessage("Export failed"))
             }
         }
     }

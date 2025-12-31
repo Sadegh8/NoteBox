@@ -22,3 +22,9 @@ data class ActiveFormats(
     val isItalic: Boolean = false,
     val isList: Boolean = false
 )
+
+sealed interface DetailUiEvent {
+    data object NavigateBack : DetailUiEvent
+    data class ShowMessage(val message: String) : DetailUiEvent
+    data class ExportSuccess(val filePath: String) : DetailUiEvent
+}

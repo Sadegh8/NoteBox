@@ -31,7 +31,8 @@ fun MainNavigation() {
         if (isExpanded) {
             TwoPaneLayout(
                 selectedNoteId = selectedNoteId,
-                onNoteClick = { id -> selectedNoteId = id }
+                onNoteClick = { id -> selectedNoteId = id },
+                onCloseDetail = { selectedNoteId = null }
             )
         } else {
             NavHost(
@@ -48,7 +49,10 @@ fun MainNavigation() {
 
                 composable<Route.Detail> { backStackEntry ->
                     val route: Route.Detail = backStackEntry.toRoute()
-                    NoteDetailScreen(noteId = route.noteId, onBackClick = { navController.popBackStack() })
+                    NoteDetailScreen(
+                        noteId = route.noteId,
+                        onBackClick = { navController.popBackStack() }
+                    )
                 }
             }
         }
@@ -58,7 +62,8 @@ fun MainNavigation() {
 @Composable
 private fun TwoPaneLayout(
     selectedNoteId: Long?,
-    onNoteClick: (Long) -> Unit
+    onNoteClick: (Long) -> Unit,
+    onCloseDetail: () -> Unit
 ) {
     Row(modifier = Modifier.fillMaxSize()) {
         BoxWithConstraints(modifier = Modifier.width(350.dp)) {
@@ -68,7 +73,10 @@ private fun TwoPaneLayout(
         VerticalDivider()
 
         BoxWithConstraints(modifier = Modifier.weight(1f)) {
-            NoteDetailScreen(noteId = selectedNoteId)
+            NoteDetailScreen(
+                noteId = selectedNoteId,
+                onBackClick = onCloseDetail
+            )
         }
     }
 }

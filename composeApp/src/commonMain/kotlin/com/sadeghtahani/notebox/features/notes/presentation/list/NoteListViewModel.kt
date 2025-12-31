@@ -34,19 +34,17 @@ class NoteListViewModel(
         .map { notes ->
             val defaultTags = listOf("All", "Work", "Personal", "Ideas", "Important")
 
-
             val userTags = notes
                 .flatMap { it.tags }
                 .distinct()
                 .sorted()
 
-            defaultTags + userTags
+            (defaultTags + userTags).distinct()
         }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = listOf("All", "Work", "Personal", "Ideas", "Important")
-
         )
 
     val uiState: StateFlow<NoteListUiState> = combine(

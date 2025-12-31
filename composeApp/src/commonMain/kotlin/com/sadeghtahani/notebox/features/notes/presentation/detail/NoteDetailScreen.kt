@@ -32,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sadeghtahani.notebox.core.util.rememberStoragePermissionLauncher
 import com.sadeghtahani.notebox.features.notes.presentation.common.CommonBackHandler
 import com.sadeghtahani.notebox.features.notes.presentation.detail.components.*
+import com.sadeghtahani.notebox.features.notes.presentation.detail.data.DetailUiEvent
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.DetailUiState
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.FormattingType
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.NoteDetailUi
@@ -45,6 +46,7 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun NoteDetailScreen(
@@ -52,6 +54,7 @@ fun NoteDetailScreen(
     onBackClick: () -> Unit = {}
 ) {
     val viewModel = koinViewModel<NoteDetailViewModel>(
+        key = noteId?.toString(),
         parameters = { parametersOf(noteId) }
     )
 
@@ -65,19 +68,28 @@ fun NoteDetailScreen(
         if (isGranted) {
             viewModel.exportNote()
         } else {
-             scope.launch { snackbarHostState.showSnackbar("Storage permission is required to export.") }
+            scope.launch { snackbarHostState.showSnackbar("Storage permission is required to export.") }
         }
     }
 
     LaunchedEffect(Unit) {
-        viewModel.exportEvent.collect { filePath ->
-            val result = snackbarHostState.showSnackbar(
-                message = "Note exported successfully",
-                actionLabel = "Open",
-                duration = SnackbarDuration.Short
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                openFile(filePath)
+        viewModel.uiEvent.collect { event ->
+            when (event) {
+                is DetailUiEvent.NavigateBack -> onBackClick()
+                is DetailUiEvent.ShowMessage -> {
+                    snackbarHostState.showSnackbar(event.message)
+                }
+
+                is DetailUiEvent.ExportSuccess -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = "Note exported successfully",
+                        actionLabel = "Open",
+                        duration = SnackbarDuration.Short
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        openFile(event.filePath)
+                    }
+                }
             }
         }
     }
@@ -140,12 +152,10 @@ fun NoteDetailScreen(
                 }
             }
 
-            val saveAndExit = {
-                viewModel.saveNote(currentNote)
-                onBackClick()
+            val saveOnExit = {
+                viewModel.saveOnExit(currentNote)
             }
-
-            CommonBackHandler(onBack = saveAndExit)
+            CommonBackHandler(onBack = saveOnExit)
 
             if (tagToDelete != null) {
                 AlertDialog(
@@ -219,7 +229,7 @@ fun NoteDetailScreen(
                 contentFieldValue = contentFieldValue,
                 snackbarHostState = snackbarHostState,
                 activeFormats = activeFormats,
-                onBackClick = saveAndExit,
+                onBackClick = saveOnExit,
                 onTitleChange = { currentNote = currentNote.copy(title = it) },
                 onContentChange = { newValue ->
                     val autoListValue = handleAutoList(contentFieldValue, newValue)
@@ -228,7 +238,7 @@ fun NoteDetailScreen(
                 onFavoriteToggle = {
                     currentNote = currentNote.copy(isFavorite = !currentNote.isFavorite)
                 },
-                onSaveClick = { viewModel.saveNote(currentNote); onBackClick() },
+                onSaveClick = { viewModel.saveNote(currentNote) },
                 onDeleteClick = { showDeleteDialog = true },
                 onAddTagClick = { showAddTagDialog = true },
                 onTagLongClick = { tag -> tagToDelete = tag },

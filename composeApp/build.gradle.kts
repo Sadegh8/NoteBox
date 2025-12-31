@@ -1,5 +1,7 @@
+import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
 
 gradle.projectsEvaluated {
     val composeGenTasks = listOf(
@@ -91,6 +93,8 @@ kotlin {
                 implementation(compose.preview)
                 implementation(libs.androidx.activity.compose)
                 implementation(libs.koin.android)
+                implementation(libs.android.database.sqlcipher)
+                implementation(libs.androidx.room.sqlite.wrapper)
             }
         }
 
@@ -135,7 +139,18 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+
+        val dbPassphrase: String =
+            gradleLocalProperties(rootDir, providers)
+                .getProperty("DB_PASSPHRASE", "dev-only-passphrase")
+
+        buildConfigField("String", "DB_PASSPHRASE", "\"$dbPassphrase\"")
     }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"

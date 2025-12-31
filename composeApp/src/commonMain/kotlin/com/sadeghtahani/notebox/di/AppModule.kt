@@ -16,6 +16,7 @@ import com.sadeghtahani.notebox.features.notes.presentation.detail.NoteDetailVie
 import com.sadeghtahani.notebox.features.notes.presentation.list.NoteListViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.runBlocking
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -23,10 +24,7 @@ val appModule = module {
     // Database Instance
     single<AppDatabase> {
         getDatabaseBuilder()
-            .fallbackToDestructiveMigration(
-                dropAllTables = false
-            )
-            .setDriver(BundledSQLiteDriver())
+            .fallbackToDestructiveMigration(dropAllTables = false)
             .setQueryCoroutineContext(Dispatchers.IO)
             .build()
     }

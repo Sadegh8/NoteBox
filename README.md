@@ -10,6 +10,11 @@
 |:---:|:---:|
 | <br> *Shows secure list/detail navigation* | <br> *Shows adaptive resizing & system file picker* |
 
+
+https://github.com/user-attachments/assets/69cc135f-4b21-4b87-9f09-51669dec2b98
+
+
+
 ---
 
 ## 🚀 Features

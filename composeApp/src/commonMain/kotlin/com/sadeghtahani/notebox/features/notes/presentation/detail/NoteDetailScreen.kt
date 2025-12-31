@@ -49,19 +49,20 @@ import org.koin.core.parameter.parametersOf
 @Composable
 fun NoteDetailScreen(
     noteId: Long?,
+    showBackButton: Boolean = true,
     onBackClick: () -> Unit = {}
 ) {
     val viewModel = koinViewModel<NoteDetailViewModel>(
         key = noteId?.toString(),
         parameters = { parametersOf(noteId) }
     )
-
+    val currentViewModel by rememberUpdatedState(viewModel)
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val permissionLauncher = rememberStoragePermissionLauncher { isGranted ->
         if (isGranted) {
-            viewModel.onAction(DetailUiAction.ExportNote)
+            currentViewModel.onAction(DetailUiAction.ExportNote)
         } else {
             scope.launch {
                 snackbarHostState.showSnackbar("Permission denied. Cannot export.")
@@ -80,6 +81,7 @@ fun NoteDetailScreen(
                         snackbarHostState.showSnackbar(event.message)
                     }
                 }
+
                 is DetailUiEvent.ExportSuccess -> {
                     launch {
                         val result = snackbarHostState.showSnackbar(
@@ -114,6 +116,7 @@ fun NoteDetailScreen(
                 note = state.note,
                 availableTags = state.availableTags,
                 snackbarHostState = snackbarHostState,
+                showBackButton = showBackButton,
                 onAction = viewModel::onAction,
                 onExportRequest = { permissionLauncher.launch() }
             )
@@ -129,6 +132,7 @@ fun NoteDetailContent(
     snackbarHostState: SnackbarHostState,
     activeFormats: Set<FormattingType>,
     onBackClick: () -> Unit,
+    showBackButton: Boolean = true,
     onTitleChange: (String) -> Unit,
     onContentChange: (TextFieldValue) -> Unit,
     onFavoriteToggle: () -> Unit,
@@ -152,6 +156,7 @@ fun NoteDetailContent(
             Box(modifier = Modifier.statusBarsPadding()) {
                 DetailTopBar(
                     isDark = isDark,
+                    showBackButton = showBackButton,
                     onBackClick = onBackClick,
                     onFavoriteClick = onFavoriteToggle,
                     isFavorite = noteUi.isFavorite,

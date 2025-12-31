@@ -35,6 +35,7 @@ import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.handle
 fun NoteDetailSuccessContent(
     note: NoteDetailUi,
     availableTags: List<String>,
+    showBackButton: Boolean = true,
     snackbarHostState: SnackbarHostState,
     onAction: (DetailUiAction) -> Unit,
     onExportRequest: () -> Unit
@@ -153,6 +154,7 @@ fun NoteDetailSuccessContent(
         contentFieldValue = contentFieldValue,
         snackbarHostState = snackbarHostState,
         activeFormats = activeFormats,
+        showBackButton = showBackButton,
         onBackClick = { onAction(DetailUiAction.NavigateBack) },
         onTitleChange = { onAction(DetailUiAction.UpdateTitle(it)) },
         onContentChange = { newValue ->

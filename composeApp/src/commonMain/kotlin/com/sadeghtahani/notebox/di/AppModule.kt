@@ -1,6 +1,5 @@
 package com.sadeghtahani.notebox.di
 
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.sadeghtahani.notebox.features.notes.data.local.database.AppDatabase
 import com.sadeghtahani.notebox.features.notes.data.local.database.getDatabaseBuilder
 import com.sadeghtahani.notebox.features.notes.data.repo.NoteRepositoryImpl
@@ -16,7 +15,6 @@ import com.sadeghtahani.notebox.features.notes.presentation.detail.NoteDetailVie
 import com.sadeghtahani.notebox.features.notes.presentation.list.NoteListViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
-import kotlinx.coroutines.runBlocking
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 

@@ -96,7 +96,7 @@ kotlin {
                 implementation(compose.preview)
                 implementation(libs.androidx.activity.compose)
                 implementation(libs.koin.android)
-                implementation(libs.android.database.sqlcipher)
+                implementation(libs.sqlcipher.android)
                 implementation(libs.androidx.room.sqlite.wrapper)
             }
         }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -29,6 +30,7 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 @Composable
 fun DetailTopBar(
     isDark: Boolean,
+    showBackButton: Boolean = true,
     onBackClick: () -> Unit,
     onFavoriteClick: () -> Unit,
     onExport: () -> Unit,
@@ -45,22 +47,26 @@ fun DetailTopBar(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(
-            onClick = onBackClick,
-            modifier = Modifier
-                .clip(CircleShape)
-                .background(if (isDark) Color.White.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.05f))
-        ) {
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowBackIos,
-                contentDescription = "Back",
-                modifier = Modifier.size(18.dp).offset(x = 3.dp),
-                tint = if (isDark) Color.White else Color.Black
-            )
+        if (showBackButton) {
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(if (isDark) Color.White.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.05f))
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBackIos,
+                    contentDescription = "Back",
+                    modifier = Modifier.size(18.dp).offset(x = 3.dp),
+                    tint = if (isDark) Color.White else Color.Black
+                )
+            }
         }
+
+        Spacer(modifier = Modifier.weight(1f))
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             IconButton(
@@ -92,7 +98,7 @@ fun DetailTopBar(
             ) {
                 Icon(
                     Icons.Default.Save,
-                    contentDescription = "Favorite",
+                    contentDescription = "Export",
                     tint = NeonGreen
                 )
             }
@@ -112,6 +118,7 @@ fun PreviewDetailTopBarDarkFavorite() {
         DetailTopBar(
             isDark = true,
             isFavorite = true,
+            showBackButton = true,
             onBackClick = {},
             onFavoriteClick = {},
             onExport = {}
@@ -119,9 +126,9 @@ fun PreviewDetailTopBarDarkFavorite() {
     }
 }
 
-@Preview(name = "Detail Top Bar - Light Unfavorite")
+@Preview(name = "Detail Top Bar - No Back Button")
 @Composable
-fun PreviewDetailTopBarLight() {
+fun PreviewDetailTopBarNoBack() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -130,6 +137,7 @@ fun PreviewDetailTopBarLight() {
         DetailTopBar(
             isDark = false,
             isFavorite = false,
+            showBackButton = false,
             onBackClick = {},
             onFavoriteClick = {},
             onExport = {}

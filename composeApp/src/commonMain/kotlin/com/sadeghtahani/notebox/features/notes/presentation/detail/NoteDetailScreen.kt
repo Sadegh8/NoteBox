@@ -56,13 +56,14 @@ fun NoteDetailScreen(
         key = noteId?.toString(),
         parameters = { parametersOf(noteId) }
     )
-    val currentViewModel by rememberUpdatedState(viewModel)
+
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
     val permissionLauncher = rememberStoragePermissionLauncher { isGranted ->
         if (isGranted) {
-            currentViewModel.onAction(DetailUiAction.ExportNote)
+            viewModel.onAction(DetailUiAction.ExportNote)
         } else {
             scope.launch {
                 snackbarHostState.showSnackbar("Permission denied. Cannot export.")
@@ -70,9 +71,15 @@ fun NoteDetailScreen(
         }
     }
 
+    LaunchedEffect(noteId) {
+        if (noteId == null || noteId == 0L) {
+            viewModel.resetState()
+        }
+    }
+
     CommonBackHandler { viewModel.onAction(DetailUiAction.NavigateBack) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(viewModel) {
         viewModel.uiEvent.collect { event ->
             when (event) {
                 is DetailUiEvent.NavigateBack -> onBackClick()
@@ -81,7 +88,6 @@ fun NoteDetailScreen(
                         snackbarHostState.showSnackbar(event.message)
                     }
                 }
-
                 is DetailUiEvent.ExportSuccess -> {
                     launch {
                         val result = snackbarHostState.showSnackbar(

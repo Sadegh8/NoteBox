@@ -174,4 +174,12 @@ class NoteDetailViewModel(
             }
         }
     }
+
+    fun resetState() {
+        if (noteId == null || noteId == 0L) {
+            _noteInputState.value = NoteDetailUi()
+            _error.value = null
+            _isLoading.value = false
+        }
+    }
 }

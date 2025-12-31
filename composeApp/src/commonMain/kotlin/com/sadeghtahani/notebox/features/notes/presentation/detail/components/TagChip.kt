@@ -38,7 +38,6 @@ fun TagChip(
                 colors.primary.copy(alpha = 0.2f),
                 RoundedCornerShape(8.dp)
             )
-            // Combined clickable handles both interactions
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick

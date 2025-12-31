@@ -7,9 +7,9 @@ import com.sadeghtahani.notebox.features.notes.domain.usecase.GetNotesUseCase
 import com.sadeghtahani.notebox.features.notes.domain.usecase.ToggleNotePinUseCase
 import com.sadeghtahani.notebox.features.notes.presentation.list.data.NoteListUiState
 import com.sadeghtahani.notebox.features.notes.presentation.list.mapper.toUi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlin.collections.listOf
 
 class NoteListViewModel(
     getNotesUseCase: GetNotesUseCase,
@@ -33,14 +33,10 @@ class NoteListViewModel(
     val tags: StateFlow<List<String>> = getNotesUseCase()
         .map { notes ->
             val defaultTags = listOf("All", "Work", "Personal", "Ideas", "Important")
-
-            val userTags = notes
-                .flatMap { it.tags }
-                .distinct()
-                .sorted()
-
-            (defaultTags + userTags).distinct()
+            val userTags = notes.flatMap { it.tags }
+            (defaultTags + userTags).distinct().sorted()
         }
+        .flowOn(Dispatchers.Default)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -52,53 +48,46 @@ class NoteListViewModel(
         _searchQuery,
         _selectedFilter
     ) { notes, query, filter ->
-
-        var resultingNotes = if (query.isBlank()) {
-            notes
-        } else {
-            notes.filter { note ->
-                note.title.contains(query, ignoreCase = true) ||
-                        note.content.contains(query, ignoreCase = true)
+        val filteredByQuery = if (query.isBlank()) notes else {
+            notes.filter {
+                it.title.contains(query, ignoreCase = true) ||
+                        it.content.contains(query, ignoreCase = true)
             }
         }
 
-        if (filter != "All") {
-            resultingNotes = resultingNotes.filter { note ->
-                when (filter) {
-                    "Favorites" -> note.isPinned
-                    else -> note.tags.any { it.equals(filter, ignoreCase = true) }
-                }
+        val finalNotes = if (filter == "All") filteredByQuery else {
+            filteredByQuery.filter { note ->
+                if (filter == "Favorites") note.isPinned
+                else note.tags.any { it.equals(filter, ignoreCase = true) }
             }
         }
 
-        if (resultingNotes.isEmpty() && query.isBlank() && filter == "All") {
+        if (notes.isEmpty()) {
             NoteListUiState.Empty
         } else {
-            NoteListUiState.Success(resultingNotes.map { it.toUi() })
+            val uiNotes = finalNotes.map { it.toUi() }
+            NoteListUiState.Success(
+                notes = uiNotes,
+                pinnedNotes = uiNotes.filter { it.isPinned },
+                otherNotes = uiNotes.filter { !it.isPinned }
+            )
         }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = NoteListUiState.Loading
-    )
-
-    fun onSearchQueryChange(newQuery: String) {
-        _searchQuery.value = newQuery
     }
+        .flowOn(Dispatchers.Default)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = NoteListUiState.Loading
+        )
 
-    fun onFilterChange(newFilter: String) {
-        _selectedFilter.value = newFilter
-    }
+    fun onSearchQueryChange(newQuery: String) { _searchQuery.value = newQuery }
+    fun onFilterChange(newFilter: String) { _selectedFilter.value = newFilter }
 
     fun togglePin(noteId: Long) {
-        viewModelScope.launch {
-            toggleNotePinUseCase(noteId)
-        }
+        viewModelScope.launch { toggleNotePinUseCase(noteId) }
     }
 
     fun toggleView() {
-        viewModelScope.launch {
-            settingsRepository.setGridView(!isGridView.value)
-        }
+        viewModelScope.launch { settingsRepository.setGridView(!isGridView.value) }
     }
 }

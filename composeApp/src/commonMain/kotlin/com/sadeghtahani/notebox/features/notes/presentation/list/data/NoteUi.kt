@@ -16,5 +16,9 @@ data class NoteUi(
 sealed interface NoteListUiState {
     data object Loading : NoteListUiState
     data object Empty : NoteListUiState
-    data class Success(val notes: List<NoteUi>) : NoteListUiState
+    data class Success(
+        val notes: List<NoteUi>,
+        val pinnedNotes: List<NoteUi>,
+        val otherNotes: List<NoteUi>
+    ) : NoteListUiState
 }

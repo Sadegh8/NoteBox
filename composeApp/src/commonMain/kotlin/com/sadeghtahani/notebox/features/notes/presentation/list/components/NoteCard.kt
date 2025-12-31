@@ -1,5 +1,6 @@
 package com.sadeghtahani.notebox.features.notes.presentation.list.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,23 +32,20 @@ fun NoteCard(
     onPinClick: (Long) -> Unit
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onClick(note.id) },
+        onClick = { onClick(note.id) },
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+        )
     ) {
         Column(
-            modifier = Modifier
-                .border(
-                    1.dp,
-                    MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
-                    RoundedCornerShape(24.dp)
-                )
-                .padding(20.dp)
+            modifier = Modifier.padding(20.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -136,7 +134,7 @@ fun NoteCard(
 fun PreviewNoteCardPinnedDark() {
     val note = NoteUi(
         id = 1,
-        title = "Design Meeting with a very long title that truncates",
+        title = "Design Meeting",
         preview = "Discussion about the new design system.",
         date = "Oct 24",
         isPinned = true,

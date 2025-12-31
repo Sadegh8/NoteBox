@@ -11,7 +11,8 @@ import androidx.compose.runtime.remember
 actual fun rememberStoragePermissionLauncher(
     onResult: (Boolean) -> Unit
 ): PermissionLauncher {
-    val permissionsToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+
+    val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
     } else {
         arrayOf(
@@ -22,15 +23,15 @@ actual fun rememberStoragePermissionLauncher(
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val allGranted = permissions.entries.all { it.value }
+    ) { permissionsMap ->
+        val allGranted = permissionsMap.values.all { it }
         onResult(allGranted)
     }
 
     return remember(launcher) {
         object : PermissionLauncher {
             override fun launch() {
-                launcher.launch(permissionsToRequest)
+                launcher.launch(permissions)
             }
         }
     }

@@ -32,20 +32,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sadeghtahani.notebox.core.util.rememberStoragePermissionLauncher
 import com.sadeghtahani.notebox.features.notes.presentation.common.CommonBackHandler
 import com.sadeghtahani.notebox.features.notes.presentation.detail.components.*
+import com.sadeghtahani.notebox.features.notes.presentation.detail.data.DetailUiAction
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.DetailUiEvent
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.DetailUiState
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.FormattingType
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.NoteDetailUi
-import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.MarkdownVisualTransformation
-import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.applyFormatting
-import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.getActiveFormats
-import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.handleAutoList
+import com.sadeghtahani.notebox.features.notes.presentation.detail.components.MarkdownVisualTransformation
+import com.sadeghtahani.notebox.features.notes.presentation.detail.helper.formatTimestamp
 import com.sadeghtahani.notebox.openFile
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
-
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -59,195 +57,65 @@ fun NoteDetailScreen(
     )
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val existingTags by viewModel.existingTags.collectAsStateWithLifecycle()
-
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-
     val permissionLauncher = rememberStoragePermissionLauncher { isGranted ->
         if (isGranted) {
-            viewModel.exportNote()
+            viewModel.onAction(DetailUiAction.ExportNote)
         } else {
-            scope.launch { snackbarHostState.showSnackbar("Storage permission is required to export.") }
+            scope.launch {
+                snackbarHostState.showSnackbar("Permission denied. Cannot export.")
+            }
         }
     }
+
+    CommonBackHandler { viewModel.onAction(DetailUiAction.NavigateBack) }
 
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
             when (event) {
                 is DetailUiEvent.NavigateBack -> onBackClick()
                 is DetailUiEvent.ShowMessage -> {
-                    snackbarHostState.showSnackbar(event.message)
+                    launch {
+                        snackbarHostState.showSnackbar(event.message)
+                    }
                 }
-
                 is DetailUiEvent.ExportSuccess -> {
-                    val result = snackbarHostState.showSnackbar(
-                        message = "Note exported successfully",
-                        actionLabel = "Open",
-                        duration = SnackbarDuration.Short
-                    )
-                    if (result == SnackbarResult.ActionPerformed) {
-                        openFile(event.filePath)
+                    launch {
+                        val result = snackbarHostState.showSnackbar(
+                            message = "Note exported successfully",
+                            actionLabel = "Open",
+                            duration = SnackbarDuration.Short
+                        )
+                        if (result == SnackbarResult.ActionPerformed) {
+                            openFile(event.filePath)
+                        }
                     }
                 }
             }
         }
-    }
-
-    // Dialog States
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var showAddTagDialog by remember { mutableStateOf(false) }
-    var tagToDelete by remember { mutableStateOf<String?>(null) }
-    var newTagText by remember { mutableStateOf("") }
-
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Note") },
-            text = { Text("Are you sure you want to delete this note?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    viewModel.deleteNote { showDeleteDialog = false; onBackClick() }
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel", color = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-        )
     }
 
     when (val state = uiState) {
-        is DetailUiState.Loading -> Box(
-            Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        is DetailUiState.Loading -> {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            }
         }
 
-        is DetailUiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(state.message, color = MaterialTheme.colorScheme.error)
+        is DetailUiState.Error -> {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(state.message, color = MaterialTheme.colorScheme.error)
+            }
         }
 
         is DetailUiState.Success -> {
-            var currentNote by remember(state.note) { mutableStateOf(state.note) }
-            var contentFieldValue by remember(state.note.content) {
-                mutableStateOf(TextFieldValue(state.note.content))
-            }
-
-            val activeFormats = remember(contentFieldValue.selection, contentFieldValue.text) {
-                val formats = getActiveFormats(contentFieldValue)
-                val activeSet = mutableSetOf<FormattingType>()
-                if (formats.isBold) activeSet.add(FormattingType.BOLD)
-                if (formats.isItalic) activeSet.add(FormattingType.ITALIC)
-                if (formats.isList) activeSet.add(FormattingType.LIST)
-                activeSet
-            }
-
-            // Sync Content
-            LaunchedEffect(contentFieldValue.text) {
-                if (currentNote.content != contentFieldValue.text) {
-                    currentNote = currentNote.copy(content = contentFieldValue.text)
-                }
-            }
-
-            val saveOnExit = {
-                viewModel.saveOnExit(currentNote)
-            }
-            CommonBackHandler(onBack = saveOnExit)
-
-            if (tagToDelete != null) {
-                AlertDialog(
-                    onDismissRequest = { tagToDelete = null },
-                    title = { Text("Remove Tag") },
-                    text = { Text("Remove '${tagToDelete}'?") },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            currentNote = currentNote.copy(tags = currentNote.tags - tagToDelete!!)
-                            tagToDelete = null
-                        }) { Text("Remove", color = MaterialTheme.colorScheme.error) }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { tagToDelete = null }) { Text("Cancel") }
-                    }
-                )
-            }
-
-            if (showAddTagDialog) {
-                AlertDialog(
-                    onDismissRequest = { showAddTagDialog = false },
-                    title = { Text("Add Tag") },
-                    text = {
-                        Column {
-                            OutlinedTextField(
-                                value = newTagText,
-                                onValueChange = { if (it.length <= 15) newTagText = it },
-                                label = { Text("Tag Name") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Text("Suggestions:", style = MaterialTheme.typography.labelMedium)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(existingTags.filter { it !in currentNote.tags }) { suggestion ->
-                                    TagChip(
-                                        text = suggestion,
-                                        onClick = {
-                                            currentNote =
-                                                currentNote.copy(tags = currentNote.tags + suggestion)
-                                            showAddTagDialog = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                if (newTagText.isNotBlank() && !currentNote.tags.contains(newTagText)) {
-                                    currentNote =
-                                        currentNote.copy(tags = currentNote.tags + newTagText)
-                                }
-                                newTagText = ""
-                                showAddTagDialog = false
-                            },
-                            enabled = newTagText.isNotBlank()
-                        ) { Text("Add") }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showAddTagDialog = false }) { Text("Cancel") }
-                    }
-                )
-            }
-
-            NoteDetailContent(
-                noteUi = currentNote,
-                contentFieldValue = contentFieldValue,
+            NoteDetailSuccessContent(
+                note = state.note,
+                availableTags = state.availableTags,
                 snackbarHostState = snackbarHostState,
-                activeFormats = activeFormats,
-                onBackClick = saveOnExit,
-                onTitleChange = { currentNote = currentNote.copy(title = it) },
-                onContentChange = { newValue ->
-                    val autoListValue = handleAutoList(contentFieldValue, newValue)
-                    contentFieldValue = autoListValue
-                },
-                onFavoriteToggle = {
-                    currentNote = currentNote.copy(isFavorite = !currentNote.isFavorite)
-                },
-                onSaveClick = { viewModel.saveNote(currentNote) },
-                onDeleteClick = { showDeleteDialog = true },
-                onAddTagClick = { showAddTagDialog = true },
-                onTagLongClick = { tag -> tagToDelete = tag },
-                onFormatClick = { type ->
-                    contentFieldValue = applyFormatting(contentFieldValue, type)
-                },
-                onExport = {
-                    permissionLauncher.launch()
-                }
+                onAction = viewModel::onAction,
+                onExportRequest = { permissionLauncher.launch() }
             )
         }
     }
@@ -259,8 +127,8 @@ fun NoteDetailContent(
     noteUi: NoteDetailUi,
     contentFieldValue: TextFieldValue,
     snackbarHostState: SnackbarHostState,
-    onBackClick: () -> Unit,
     activeFormats: Set<FormattingType>,
+    onBackClick: () -> Unit,
     onTitleChange: (String) -> Unit,
     onContentChange: (TextFieldValue) -> Unit,
     onFavoriteToggle: () -> Unit,
@@ -293,7 +161,10 @@ fun NoteDetailContent(
         },
         floatingActionButton = {
             Box(
-                Modifier.fillMaxWidth().padding(bottom = 24.dp).navigationBarsPadding()
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
+                    .navigationBarsPadding()
                     .imePadding(),
                 contentAlignment = Alignment.Center
             ) {
@@ -308,7 +179,10 @@ fun NoteDetailContent(
         floatingActionButtonPosition = FabPosition.Center
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 24.dp),
@@ -316,20 +190,30 @@ fun NoteDetailContent(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(
-                    Modifier.background(colors.primary.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
+                    Modifier
+                        .background(colors.primary.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        "Personal",
+                        text = "Personal",
                         color = colors.primary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
-                Text(noteUi.lastEdited, color = colors.onSurfaceVariant, fontSize = 12.sp)
+
+                val dateText = remember(noteUi.lastEditedTimestamp) {
+                    formatTimestamp(noteUi.lastEditedTimestamp)
+                }
+                Text(
+                    text = dateText,
+                    color = colors.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
             }
+
             Spacer(Modifier.height(16.dp))
-            // ... rest of the text fields ...
+
             BasicTextField(
                 value = noteUi.title,
                 onValueChange = onTitleChange,
@@ -341,7 +225,9 @@ fun NoteDetailContent(
                     textAlign = TextAlign.Start
                 ),
                 cursorBrush = SolidColor(colors.primary),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
             ) { innerTextField ->
                 if (noteUi.title.isEmpty()) {
                     Text(
@@ -354,6 +240,7 @@ fun NoteDetailContent(
                 }
                 innerTextField()
             }
+
             Spacer(Modifier.height(24.dp))
 
             LazyRow(
@@ -370,11 +257,13 @@ fun NoteDetailContent(
                     AddTagButton(onClick = onAddTagClick)
                 }
             }
+
             Spacer(Modifier.height(24.dp))
 
             Box(
                 modifier = Modifier
-                    .fillMaxWidth().padding(horizontal = 16.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(colors.surface)
                     .border(1.dp, colors.outline.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
@@ -402,7 +291,9 @@ fun NoteDetailContent(
                         textAlign = TextAlign.Start
                     ),
                     cursorBrush = SolidColor(colors.primary),
-                    modifier = Modifier.fillMaxSize().focusRequester(focusRequester)
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .focusRequester(focusRequester)
                 ) { innerTextField ->
                     if (contentFieldValue.text.isEmpty()) {
                         Text(

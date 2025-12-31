@@ -4,22 +4,24 @@ import com.sadeghtahani.notebox.features.notes.domain.service.FileSaver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.net.URI
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 
 class DesktopFileSaver : FileSaver {
+
     override suspend fun saveFile(fileName: String, content: String): Result<String> {
         return try {
             val selectedFile = withContext(Dispatchers.Main) {
-                val fileChooser = JFileChooser()
-                fileChooser.dialogTitle = "Export Note"
-                fileChooser.selectedFile = File("$fileName.txt")
-                fileChooser.fileFilter = FileNameExtensionFilter("Text Files", "txt")
+                val chooser = JFileChooser()
+                chooser.dialogTitle = "Export Note"
+                chooser.selectedFile = File("$fileName.txt")
+                chooser.fileFilter = FileNameExtensionFilter("Text Files", "txt")
 
-                val userSelection = fileChooser.showSaveDialog(null)
+                val userSelection = chooser.showSaveDialog(null)
 
                 if (userSelection == JFileChooser.APPROVE_OPTION) {
-                    fileChooser.selectedFile
+                    chooser.selectedFile
                 } else {
                     null
                 }
@@ -27,17 +29,37 @@ class DesktopFileSaver : FileSaver {
 
             if (selectedFile != null) {
                 withContext(Dispatchers.IO) {
-                    var fileToSave = selectedFile
-                    // Ensure proper extension
-                    if (!fileToSave.absolutePath.endsWith(".txt")) {
-                        fileToSave = File(fileToSave.absolutePath + ".txt")
+                    val finalFile = if (selectedFile.absolutePath.endsWith(".txt")) {
+                        selectedFile
+                    } else {
+                        File(selectedFile.absolutePath + ".txt")
                     }
-                    fileToSave.writeText(content)
-                    Result.success(fileToSave.absolutePath)
+
+                    finalFile.writeText(content)
+                    Result.success(finalFile.absolutePath)
                 }
             } else {
-                Result.failure(Exception("Cancelled by user"))
+                Result.failure(Exception("Export cancelled by user"))
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun saveContentToUri(
+        uriString: String,
+        content: String
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val file = if (uriString.startsWith("file:")) {
+                File(URI(uriString))
+            } else {
+                File(uriString)
+            }
+
+            file.writeText(content)
+            Result.success(Unit)
         } catch (e: Exception) {
             e.printStackTrace()
             Result.failure(e)

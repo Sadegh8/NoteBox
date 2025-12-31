@@ -39,9 +39,6 @@ fun FilterSection(
 
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        // 2. Add content padding.
-        // 'end = 24.dp' ensures the last item has breathing room from the screen edge when scrolled.
-        // 'start = 0.dp' assumes the parent already has left padding.
         contentPadding = PaddingValues(end = 24.dp),
         modifier = modifier.fillMaxWidth()
     ) {
@@ -88,7 +85,7 @@ fun FilterSection(
 fun PreviewFilterSectionDark() {
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = Color(0xFF39FF14), // Neon Green
+            primary = Color(0xFF39FF14),
             surfaceVariant = Color(0xFF1e211e),
             onSurfaceVariant = Color.Gray
         )
@@ -112,7 +109,7 @@ fun PreviewFilterSectionDark() {
 fun PreviewFilterSectionLight() {
     MaterialTheme(
         colorScheme = lightColorScheme(
-            primary = Color(0xFF2196F3), // Blue
+            primary = Color(0xFF2196F3),
             surfaceVariant = Color(0xFFE8EAE8),
             onSurfaceVariant = Color.Gray
         )

@@ -4,6 +4,8 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.ActiveFormats
 import com.sadeghtahani.notebox.features.notes.presentation.detail.data.FormattingType
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 fun applyFormatting(value: TextFieldValue, type: FormattingType): TextFieldValue {
     val text = value.text
@@ -30,7 +32,7 @@ fun applyFormatting(value: TextFieldValue, type: FormattingType): TextFieldValue
             )
         } else {
             val newText = text.replaceRange(lineStart, lineStart, "- ")
-            val cursorOffset = if (selection.collapsed) 2 else 0 // Move cursor after bullet
+            val cursorOffset = if (selection.collapsed) 2 else 0
             value.copy(
                 text = newText,
                 selection = TextRange(start + cursorOffset, end + 2)
@@ -48,7 +50,7 @@ fun applyFormatting(value: TextFieldValue, type: FormattingType): TextFieldValue
         val newText = text.replaceRange(start, end, "$prefix$suffix")
         value.copy(
             text = newText,
-            selection = TextRange(start + prefix.length) // Place cursor inside
+            selection = TextRange(start + prefix.length)
         )
     } else {
         val selectedText = text.substring(start, end)
@@ -112,4 +114,18 @@ fun getActiveFormats(value: TextFieldValue): ActiveFormats {
     }
 
     return ActiveFormats(isBold, isItalic, isList)
+}
+
+@OptIn(ExperimentalTime::class)
+fun formatTimestamp(timestamp: Long): String {
+    if (timestamp <= 0L) return "Edited just now"
+    val now = Clock.System.now().toEpochMilliseconds()
+    val diff = (now - timestamp) / 1000
+
+    return when {
+        diff < 60 -> "Just now"
+        diff < 3600 -> "${diff / 60} min ago"
+        diff < 86400 -> "${diff / 3600} hr ago"
+        else -> "${diff / 86400} days ago"
+    }
 }

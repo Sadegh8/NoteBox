@@ -6,27 +6,29 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.ExperimentalTime
 
+@OptIn(ExperimentalTime::class)
 fun Note.toDetailUi(): NoteDetailUi {
     return NoteDetailUi(
         id = id,
         title = title,
         content = content,
         tags = tags,
-        lastEdited = formatRelativeTime(updatedAt),
+        lastEditedTimestamp = updatedAt,
         isFavorite = isPinned
     )
 }
 
 @OptIn(ExperimentalTime::class)
-fun NoteDetailUi.toDomain(): Note {
-    val now = Clock.System.now().toEpochMilliseconds()
+fun NoteDetailUi.toDomain(
+    currentTime: Long = Clock.System.now().toEpochMilliseconds()
+): Note {
     return Note(
         id = id ?: 0L,
         title = title,
         content = content,
         isPinned = isFavorite,
-        createdAt = now,
-        updatedAt = now,
+        createdAt = if (id == null || id == 0L) currentTime else 0L,
+        updatedAt = currentTime,
         color = 0xFF37cc19,
         tags = tags
     )

@@ -1,4 +1,4 @@
-package com.sadeghtahani.notebox.features.notes.presentation.detail.helper
+package com.sadeghtahani.notebox.features.notes.presentation.detail.components
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
@@ -8,15 +8,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.sp
 
 /**
  * Minimal markdown visual transformer for the note editor.
- *
- * Supported syntax (render-only, underlying text stays unchanged):
- *  - **bold**          → bold span, asterisks hidden
- *  - _italic_         → italic span, underscores hidden
- *  - "- Item" at BOL  → "• Item" with colored bullet
  */
 class MarkdownVisualTransformation(
     private val textColor: Color,
@@ -24,8 +18,7 @@ class MarkdownVisualTransformation(
 ) : VisualTransformation {
 
     private val hiddenSyntaxStyle = SpanStyle(
-        color = Color.Transparent,
-        fontSize = 0.sp
+        color = Color.Transparent
     )
 
     override fun filter(text: AnnotatedString): TransformedText {
@@ -35,7 +28,6 @@ class MarkdownVisualTransformation(
         applyBold(rawText, styleBuilder)
         applyItalic(rawText, styleBuilder)
 
-        // Lists need a separate backing string because we visually replace '-' with '•'.
         val listTransformedText = applyLists(rawText, styleBuilder)
 
         return TransformedText(
@@ -45,55 +37,53 @@ class MarkdownVisualTransformation(
     }
 
     /**
-     * **text** → bold span; asterisks are rendered invisible.
+     * **text** → bold span.
      */
     private fun applyBold(rawText: String, builder: AnnotatedString.Builder) {
-        val boldRegex = Regex("\\*\\*(.*?)\\*\\*")
+        val boldRegex = Regex("\\*\\*([\\s\\S]*?)\\*\\*")
 
-        boldRegex.findAll(rawText).forEach { result ->
-            // Bold for the inner segment (without the surrounding ** markers).
+        boldRegex.findAll(rawText).forEach { matchResult ->
+            val startIndex = matchResult.range.first
+            val endIndex = matchResult.range.last + 1
+
             builder.addStyle(
                 style = SpanStyle(
                     fontWeight = FontWeight.Bold,
                     color = textColor
                 ),
-                start = result.range.first + 2,
-                end = result.range.last - 1
+                start = startIndex + 2,
+                end = endIndex - 2
             )
 
-            // Hide opening and closing markers.
-            builder.addStyle(hiddenSyntaxStyle, result.range.first, result.range.first + 2)
-            builder.addStyle(hiddenSyntaxStyle, result.range.last - 1, result.range.last + 1)
+            builder.addStyle(hiddenSyntaxStyle, startIndex, startIndex + 2)
+            builder.addStyle(hiddenSyntaxStyle, endIndex - 2, endIndex)
         }
     }
 
     /**
-     * _text_ → italic span; underscores are rendered invisible.
+     * _text_ → italic span.
      */
     private fun applyItalic(rawText: String, builder: AnnotatedString.Builder) {
-        val italicRegex = Regex("_(.*?)_")
+        val italicRegex = Regex("_([\\s\\S]*?)_")
 
-        italicRegex.findAll(rawText).forEach { result ->
-            // Italic for the inner segment (without the surrounding _ markers).
+        italicRegex.findAll(rawText).forEach { matchResult ->
+            val startIndex = matchResult.range.first
+            val endIndex = matchResult.range.last + 1
+
             builder.addStyle(
                 style = SpanStyle(
                     fontStyle = FontStyle.Italic,
                     color = textColor
                 ),
-                start = result.range.first + 1,
-                end = result.range.last
+                start = startIndex + 1,
+                end = endIndex - 1
             )
 
-            // Hide opening and closing markers.
-            builder.addStyle(hiddenSyntaxStyle, result.range.first, result.range.first + 1)
-            builder.addStyle(hiddenSyntaxStyle, result.range.last, result.range.last + 1)
+            builder.addStyle(hiddenSyntaxStyle, startIndex, startIndex + 1)
+            builder.addStyle(hiddenSyntaxStyle, endIndex - 1, endIndex)
         }
     }
 
-    /**
-     * "- Item" at the beginning of a line → "• Item" with a primary-colored bullet.
-     * Only the first character is replaced; spans still operate on the original indices.
-     */
     private fun applyLists(
         rawText: String,
         builder: AnnotatedString.Builder
@@ -102,10 +92,8 @@ class MarkdownVisualTransformation(
         val output = StringBuilder(rawText)
 
         listRegex.findAll(rawText).forEach { result ->
-            // Swap '-' with a visual bullet while keeping string length unchanged.
             output[result.range.first] = '•'
 
-            // Highlight the bullet itself.
             builder.addStyle(
                 style = SpanStyle(
                     color = primaryColor,

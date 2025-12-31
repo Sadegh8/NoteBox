@@ -3,18 +3,17 @@ package com.sadeghtahani.notebox.features.notes.presentation.detail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sadeghtahani.notebox.features.notes.domain.service.FileSaver
-import com.sadeghtahani.notebox.features.notes.domain.usecase.DeleteNoteUseCase
-import com.sadeghtahani.notebox.features.notes.domain.usecase.GetNoteByIdUseCase
-import com.sadeghtahani.notebox.features.notes.domain.usecase.GetNotesUseCase
-import com.sadeghtahani.notebox.features.notes.domain.usecase.SaveNoteUseCase
-import com.sadeghtahani.notebox.features.notes.presentation.detail.data.DetailUiEvent
-import com.sadeghtahani.notebox.features.notes.presentation.detail.data.DetailUiState
-import com.sadeghtahani.notebox.features.notes.presentation.detail.data.NoteDetailUi
+import com.sadeghtahani.notebox.features.notes.domain.usecase.*
+import com.sadeghtahani.notebox.features.notes.presentation.detail.data.*
 import com.sadeghtahani.notebox.features.notes.presentation.detail.mapper.toDetailUi
 import com.sadeghtahani.notebox.features.notes.presentation.detail.mapper.toDomain
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.time.ExperimentalTime
 
 class NoteDetailViewModel(
     private val noteId: Long?,
@@ -25,84 +24,151 @@ class NoteDetailViewModel(
     private val fileSaver: FileSaver
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<DetailUiState>(DetailUiState.Loading)
-    val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
-
-    private val _exportEvent = Channel<String>()
-    val exportEvent = _exportEvent.receiveAsFlow()
+    private val _noteInputState = MutableStateFlow(NoteDetailUi())
+    private val _isLoading = MutableStateFlow(true)
+    private val _error = MutableStateFlow<String?>(null)
 
     private val _uiEvent = Channel<DetailUiEvent>()
     val uiEvent = _uiEvent.receiveAsFlow()
 
-    val existingTags: StateFlow<List<String>> = getNotesUseCase()
+    private val existingTagsFlow: Flow<List<String>> = getNotesUseCase()
         .map { notes ->
-            val defaults = listOf("All", "Work", "Personal", "Ideas", "Important")
-            val userTags = notes.flatMap { it.tags }
-            (defaults + userTags).distinct().sorted()
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
-
-    init {
-        loadNote()
-    }
-
-    private fun loadNote() {
-        viewModelScope.launch {
-            if (noteId == null || noteId == 0L) {
-                _uiState.value = DetailUiState.Success(NoteDetailUi())
-            } else {
-                val note = getNoteByIdUseCase(noteId)
-                if (note != null) {
-                    _uiState.value = DetailUiState.Success(note.toDetailUi())
-                } else {
-                    _uiState.value = DetailUiState.Error("Note not found")
-                }
+            withContext(Dispatchers.Default) {
+                val defaults = listOf("All", "Work", "Personal", "Ideas", "Important")
+                val userTags = notes.flatMap { it.tags }
+                (defaults + userTags).distinct().sorted()
             }
         }
+
+    val uiState: StateFlow<DetailUiState> = combine(
+        _noteInputState,
+        _isLoading,
+        _error,
+        existingTagsFlow.onStart { emit(emptyList()) }
+    ) { note, isLoading, error, tags ->
+        if (isLoading) {
+            DetailUiState.Loading
+        } else if (error != null) {
+            DetailUiState.Error(error)
+        } else {
+            DetailUiState.Success(note, tags)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = DetailUiState.Loading
+    )
+
+    init {
+        initializeNote()
     }
 
-    fun saveNote(currentUiState: NoteDetailUi) {
+    @OptIn(ExperimentalTime::class)
+    private fun initializeNote() {
         viewModelScope.launch {
-            saveNoteUseCase(currentUiState.toDomain())
+            _isLoading.value = true
+            if (noteId != null && noteId != 0L) {
+                val note = getNoteByIdUseCase(noteId)
+                if (note != null) {
+                    _noteInputState.value = note.toDetailUi()
+                } else {
+                    _error.value = "Note not found"
+                }
+            }
+            _isLoading.value = false
+        }
+    }
+
+    fun onAction(action: DetailUiAction) {
+        when (action) {
+            is DetailUiAction.UpdateTitle -> {
+                _noteInputState.update { it.copy(title = action.newTitle) }
+            }
+
+            is DetailUiAction.UpdateContent -> {
+                _noteInputState.update { it.copy(content = action.newContent) }
+            }
+
+            is DetailUiAction.UpdateTags -> {
+                _noteInputState.update { it.copy(tags = action.newTags) }
+            }
+
+            is DetailUiAction.ToggleFavorite -> {
+                _noteInputState.update { it.copy(isFavorite = !it.isFavorite) }
+            }
+
+            is DetailUiAction.SaveNote -> saveNote()
+            is DetailUiAction.DeleteNote -> deleteNote()
+            is DetailUiAction.ExportNote -> exportNote()
+            is DetailUiAction.NavigateBack -> saveOnExit()
+            is DetailUiAction.ExportNoteToUri -> exportNoteToUri(action.uriString)
+        }
+    }
+
+    private fun saveNote() {
+        val currentNote = _noteInputState.value
+        viewModelScope.launch {
+            saveNoteUseCase(currentNote.toDomain())
                 .onSuccess { _uiEvent.send(DetailUiEvent.NavigateBack) }
                 .onFailure { _uiEvent.send(DetailUiEvent.ShowMessage("Cannot save empty note")) }
         }
     }
 
-    fun saveOnExit(currentUiState: NoteDetailUi) {
-        viewModelScope.launch {
-            saveNoteUseCase(currentUiState.toDomain())
-            // Always exit on back press, even if save failed (empty note = discard)
+    private fun saveOnExit() {
+        val currentNote = _noteInputState.value
+        viewModelScope.launch(NonCancellable) {
+            saveNoteUseCase(currentNote.toDomain())
             _uiEvent.send(DetailUiEvent.NavigateBack)
         }
     }
 
-    fun deleteNote(onSuccess: () -> Unit) {
+    private fun deleteNote() {
+        _noteInputState.value = NoteDetailUi()
+
         if (noteId != null && noteId != 0L) {
             viewModelScope.launch {
                 deleteNoteUseCase(noteId)
-                onSuccess()
+                _uiEvent.send(DetailUiEvent.NavigateBack)
             }
         } else {
-            onSuccess()
+            viewModelScope.launch { _uiEvent.send(DetailUiEvent.NavigateBack) }
         }
     }
 
-    fun exportNote() {
-        val note = (uiState.value as? DetailUiState.Success)?.note ?: return
+    private fun exportNote() {
+        val note = _noteInputState.value
+
+        if (note.title.isBlank() && note.content.isBlank()) {
+            viewModelScope.launch { _uiEvent.send(DetailUiEvent.ShowMessage("Note is empty")) }
+            return
+        }
+
         viewModelScope.launch {
             val result = fileSaver.saveFile(
                 fileName = note.title.ifBlank { "Untitled" },
                 content = note.content
             )
+
             if (result.isSuccess) {
                 result.getOrNull()?.let { path ->
                     _uiEvent.send(DetailUiEvent.ExportSuccess(path))
                 }
+            } else {
+                _uiEvent.send(DetailUiEvent.ShowMessage("Export failed"))
+            }
+        }
+    }
+
+    private fun exportNoteToUri(uriString: String) {
+        val note = _noteInputState.value
+        viewModelScope.launch {
+            val result = fileSaver.saveContentToUri(
+                uriString = uriString,
+                content = note.content
+            )
+
+            if (result.isSuccess) {
+                _uiEvent.send(DetailUiEvent.ShowMessage("Exported successfully!"))
             } else {
                 _uiEvent.send(DetailUiEvent.ShowMessage("Export failed"))
             }

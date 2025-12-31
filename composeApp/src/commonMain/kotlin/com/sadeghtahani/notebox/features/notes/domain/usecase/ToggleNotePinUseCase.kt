@@ -10,7 +10,6 @@ class ToggleNotePinUseCase(
     @OptIn(ExperimentalTime::class)
     suspend operator fun invoke(id: Long) {
         val note = repository.getNoteById(id)
-        // Only proceed if the note actually exists
         if (note != null) {
             val updatedNote = note.copy(
                 isPinned = !note.isPinned,

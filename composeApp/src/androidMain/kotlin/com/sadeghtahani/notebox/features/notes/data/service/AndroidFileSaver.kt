@@ -2,6 +2,7 @@ package com.sadeghtahani.notebox.features.notes.data.service
 
 import android.content.ContentValues
 import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -40,6 +41,18 @@ class AndroidFileSaver(private val context: Context) : FileSaver {
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun saveContentToUri(uriString: String, content: String): Result<Unit> {
+        return try {
+            val uri = Uri.parse(uriString)
+            context.contentResolver.openOutputStream(uri)?.use { stream ->
+                stream.write(content.toByteArray())
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }

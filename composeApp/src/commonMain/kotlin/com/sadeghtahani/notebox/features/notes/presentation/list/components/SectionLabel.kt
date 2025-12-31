@@ -62,13 +62,11 @@ fun PreviewSectionLabelDark() {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Simulating "Pinned"
             SectionLabel(
                 text = "ACTIVE NOTES",
                 color = MaterialTheme.colorScheme.primary
             )
 
-            // Simulating "Recent"
             SectionLabel(
                 text = "ARCHIVED",
                 color = MaterialTheme.colorScheme.secondary

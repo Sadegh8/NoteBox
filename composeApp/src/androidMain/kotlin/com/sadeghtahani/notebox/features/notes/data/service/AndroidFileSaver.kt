@@ -1,11 +1,14 @@
 package com.sadeghtahani.notebox.features.notes.data.service
 
+import android.Manifest
 import android.content.ContentValues
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import androidx.core.content.ContextCompat
 import com.sadeghtahani.notebox.features.notes.domain.service.FileSaver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -31,13 +34,26 @@ class AndroidFileSaver(private val context: Context) : FileSaver {
 
                 Result.success(uri.toString())
             } else {
-                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                if (!downloadsDir.exists()) downloadsDir.mkdirs()
+                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED
+                ) {
+                    return@withContext Result.failure(
+                        SecurityException("Permission denied: WRITE_EXTERNAL_STORAGE is required for this Android version.")
+                    )
+                }
 
-                val file = File(downloadsDir, "$fileName.txt")
-                file.writeText(content)
+                try {
+                    val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                    if (!downloadsDir.exists()) downloadsDir.mkdirs()
 
-                Result.success(file.absolutePath)
+                    val file = File(downloadsDir, "$fileName.txt")
+                    file.writeText(content)
+
+                    Result.success(file.absolutePath)
+                } catch (e: SecurityException) {
+                    e.printStackTrace()
+                    Result.failure(Exception("Permission denied: Unable to write to storage."))
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()

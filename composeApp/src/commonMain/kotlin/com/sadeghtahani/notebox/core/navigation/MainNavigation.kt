@@ -1,82 +1,56 @@
 package com.sadeghtahani.notebox.core.navigation
 
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.layout.AnimatedPane
+import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
+import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
+import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.toRoute
+import androidx.compose.runtime.rememberCoroutineScope
+import com.sadeghtahani.notebox.features.notes.presentation.common.CommonBackHandler
 import com.sadeghtahani.notebox.features.notes.presentation.detail.NoteDetailScreen
 import com.sadeghtahani.notebox.features.notes.presentation.list.NoteListScreen
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 fun MainNavigation() {
-    val navController = rememberNavController()
+    val navigator = rememberListDetailPaneScaffoldNavigator<Long>()
+    val scope = rememberCoroutineScope()
 
-    var selectedNoteId by rememberSaveable { mutableStateOf<Long?>(null) }
+    CommonBackHandler(enabled = navigator.canNavigateBack()) {
+        scope.launch {
+            navigator.navigateBack()
+        }
+    }
 
-    BoxWithConstraints {
-        val isExpanded = maxWidth >= 840.dp
-
-        if (isExpanded) {
-            TwoPaneLayout(
-                selectedNoteId = selectedNoteId,
-                onNoteClick = { id -> selectedNoteId = id },
-                onCloseDetail = { selectedNoteId = null }
-            )
-        } else {
-            NavHost(
-                navController = navController,
-                startDestination = Route.Home
-            ) {
-                composable<Route.Home> {
-                    NoteListScreen(
-                        onNoteClick = { id ->
-                            navController.navigate(Route.Detail(id))
+    ListDetailPaneScaffold(
+        directive = navigator.scaffoldDirective,
+        value = navigator.scaffoldValue,
+        listPane = {
+            AnimatedPane {
+                NoteListScreen(
+                    onNoteClick = { noteId ->
+                        scope.launch {
+                            navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, noteId)
                         }
-                    )
-                }
+                    }
+                )
+            }
+        },
+        detailPane = {
+            AnimatedPane {
+                val noteId = navigator.currentDestination?.contentKey
 
-                composable<Route.Detail> { backStackEntry ->
-                    val route: Route.Detail = backStackEntry.toRoute()
-                    NoteDetailScreen(
-                        noteId = route.noteId,
-                        onBackClick = { navController.popBackStack() }
-                    )
-                }
+                NoteDetailScreen(
+                    noteId = noteId,
+                    onBackClick = {
+                        scope.launch {
+                            navigator.navigateBack()
+                        }
+                    }
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun TwoPaneLayout(
-    selectedNoteId: Long?,
-    onNoteClick: (Long) -> Unit,
-    onCloseDetail: () -> Unit
-) {
-    Row(modifier = Modifier.fillMaxSize()) {
-        BoxWithConstraints(modifier = Modifier.width(350.dp)) {
-            NoteListScreen(onNoteClick = onNoteClick)
-        }
-
-        VerticalDivider()
-
-        BoxWithConstraints(modifier = Modifier.weight(1f)) {
-            NoteDetailScreen(
-                noteId = selectedNoteId,
-                onBackClick = onCloseDetail
-            )
-        }
-    }
+    )
 }

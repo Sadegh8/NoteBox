@@ -1,7 +1,6 @@
 import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
 
 gradle.projectsEvaluated {
     val composeGenTasks = listOf(
@@ -63,6 +62,10 @@ kotlin {
                 implementation(compose.components.resources)
                 implementation(compose.components.uiToolingPreview)
 
+                implementation(libs.compose.material3.adaptive)
+                implementation(libs.compose.material3.adaptive.layout)
+                implementation(libs.compose.material3.adaptive.navigation)
+
                 implementation(libs.androidx.lifecycle.viewmodel)
                 implementation(libs.androidx.lifecycle.runtime.compose)
                 implementation(libs.navigation.compose)
@@ -98,7 +101,6 @@ kotlin {
             }
         }
 
-        // Desktop JVM source set
         val desktopMain by getting {
             dependencies {
                 implementation(compose.desktop.currentOs)
@@ -106,7 +108,6 @@ kotlin {
             }
         }
 
-        // Optional: shared iOSMain if you want
         val iosArm64Main by getting
         val iosSimulatorArm64Main by getting
         val iosMain by creating {

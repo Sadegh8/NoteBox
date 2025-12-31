@@ -3,25 +3,23 @@ package com.sadeghtahani.notebox.features.notes.data.service
 import com.sadeghtahani.notebox.features.notes.domain.service.FileSaver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.awt.FileDialog
+import java.awt.Frame
 import java.io.File
 import java.net.URI
-import javax.swing.JFileChooser
-import javax.swing.filechooser.FileNameExtensionFilter
 
 class DesktopFileSaver : FileSaver {
 
     override suspend fun saveFile(fileName: String, content: String): Result<String> {
         return try {
             val selectedFile = withContext(Dispatchers.Main) {
-                val chooser = JFileChooser()
-                chooser.dialogTitle = "Export Note"
-                chooser.selectedFile = File("$fileName.txt")
-                chooser.fileFilter = FileNameExtensionFilter("Text Files", "txt")
+                val dialog = FileDialog(null as Frame?, "Export Note", FileDialog.SAVE)
+                dialog.file = "$fileName.txt"
 
-                val userSelection = chooser.showSaveDialog(null)
+                dialog.isVisible = true
 
-                if (userSelection == JFileChooser.APPROVE_OPTION) {
-                    chooser.selectedFile
+                if (dialog.file != null && dialog.directory != null) {
+                    File(dialog.directory, dialog.file)
                 } else {
                     null
                 }
@@ -29,7 +27,7 @@ class DesktopFileSaver : FileSaver {
 
             if (selectedFile != null) {
                 withContext(Dispatchers.IO) {
-                    val finalFile = if (selectedFile.absolutePath.endsWith(".txt")) {
+                    val finalFile = if (selectedFile.name.endsWith(".txt", ignoreCase = true)) {
                         selectedFile
                     } else {
                         File(selectedFile.absolutePath + ".txt")
@@ -57,6 +55,8 @@ class DesktopFileSaver : FileSaver {
             } else {
                 File(uriString)
             }
+
+            file.parentFile?.mkdirs()
 
             file.writeText(content)
             Result.success(Unit)
